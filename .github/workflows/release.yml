@@ -1,0 +1,81 @@
+name: Publish to npm
+
+# Publishes @expys/sdk to npm WITH PROVENANCE. This repo is the public home of the
+# TypeScript SDK; source is mirrored here from the private Utopia-Members-Club-Inc/
+# utopia monorepo (packages/sdk-ts) on every release, which pushes the matching
+# vX.Y.Z tag that triggers this workflow. Development happens upstream in the
+# monorepo — see CONTRIBUTING.md. Do not edit the source here by hand.
+#
+# Why publishing lives here and not upstream: npm provenance (the verifiable
+# "built from this commit" attestation) requires `id-token: write` AND a PUBLIC
+# repository. The monorepo is private, so the publish must run from this mirror.
+#
+# Auth: set an NPM_TOKEN repo secret here (an npm granular token with read+write on
+# the @expys scope). After the first publish you may instead configure an npm
+# Trusted Publisher (OIDC) for this repo + workflow and remove the token; provenance
+# keeps working either way.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @expys/sdk to npm (provenance)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required to generate the provenance attestation
+    steps:
+      - name: 🛒 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: ⬆️ Upgrade npm (provenance + OIDC need npm >= 11.5.1)
+        run: npm install -g npm@latest
+
+      - name: 🍞 Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: 📦 Install
+        run: bun install
+
+      - name: 🔖 Sync version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: 🧪 Test (coverage-gated)
+        run: bun test --coverage
+
+      - name: 🏗️ Build
+        run: bun run build
+
+      - name: 🔒 Packaging gates (publint + attw + size)
+        run: |
+          bun run publint
+          bun run attw
+          bun run size
+
+      - name: ✅ Verify the embedded version matches the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}" node --input-type=module -e "import('./dist/index.mjs').then(m=>{if(m.SDK_VERSION!==process.env.VERSION){throw new Error('embedded SDK_VERSION '+m.SDK_VERSION+' != tag '+process.env.VERSION)} console.log('version ok', m.SDK_VERSION)})"
+
+      - name: 🚀 Publish to npm with provenance
+        run: npm publish --provenance --access public
+        env:
+          # First release authenticates with NPM_TOKEN. Once an npm Trusted Publisher
+          # (OIDC) is configured for this repo, the token can be removed.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
