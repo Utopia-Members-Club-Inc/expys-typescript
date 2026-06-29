@@ -1,18 +1,19 @@
-# @expys/sdk
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/expys-logo-white.svg" />
+    <img alt="Expys" src="assets/expys-logo-black.svg" width="150" />
+  </picture>
+</p>
 
-[![SDK CI](https://github.com/Utopia-Members-Club-Inc/utopia/actions/workflows/sdk-ci.yml/badge.svg)](https://github.com/Utopia-Members-Club-Inc/utopia/actions/workflows/sdk-ci.yml)
-[![types included](https://img.shields.io/badge/types-included-blue.svg)](https://arethetypeswrong.github.io/?p=%40expys%2Fsdk)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+<h1 align="center">@expys/sdk</h1>
 
-<!--
-The badges below go live once the package is published to npm and the repo is
-connected to Codecov (see CONTRIBUTING.md and sdk-ci.yml). Uncomment them then.
-
-[![npm version](https://img.shields.io/npm/v/@expys/sdk.svg)](https://www.npmjs.com/package/@expys/sdk)
-[![npm downloads](https://img.shields.io/npm/dm/@expys/sdk.svg)](https://www.npmjs.com/package/@expys/sdk)
-[![node-current](https://img.shields.io/node/v/@expys/sdk.svg)](https://www.npmjs.com/package/@expys/sdk)
-[![codecov](https://codecov.io/gh/Utopia-Members-Club-Inc/utopia/branch/main/graph/badge.svg?flag=sdk-ts)](https://codecov.io/gh/Utopia-Members-Club-Inc/utopia)
--->
+<p align="center">
+  <a href="https://www.npmjs.com/package/@expys/sdk"><img alt="npm version" src="https://img.shields.io/npm/v/@expys/sdk?style=flat-square&labelColor=000000&color=9EC1DE" /></a>
+  <a href="https://www.npmjs.com/package/@expys/sdk"><img alt="npm downloads" src="https://img.shields.io/npm/dm/@expys/sdk?style=flat-square&labelColor=000000&color=9EC1DE" /></a>
+  <a href="https://www.npmjs.com/package/@expys/sdk"><img alt="node" src="https://img.shields.io/node/v/@expys/sdk?style=flat-square&labelColor=000000&color=555555" /></a>
+  <a href="https://arethetypeswrong.github.io/?p=%40expys%2Fsdk"><img alt="types included" src="https://img.shields.io/badge/types-included-9EC1DE?style=flat-square&labelColor=000000" /></a>
+  <a href="./LICENSE"><img alt="license MIT" src="https://img.shields.io/badge/license-MIT-9EC1DE?style=flat-square&labelColor=000000" /></a>
+</p>
 
 Official Expys data SDK for TypeScript. Embed Expys experiences into your web,
 React Native, or Node app. Fetch-only, **zero runtime dependencies**.
