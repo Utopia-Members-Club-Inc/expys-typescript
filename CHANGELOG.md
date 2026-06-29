@@ -5,6 +5,13 @@ All notable changes to `@expys/sdk` are documented here. This project follows
 [Expys SDK versioning and deprecation policy](https://docs.expys.com/guides/versioning).
 Entries are added with [changesets](https://github.com/changesets/changesets).
 
+## 0.1.1 - 2026-06-29
+
+### Changed
+
+- Docs only: branded README (Expys wordmark + flat-square badges) so the npm
+  package page renders the brand. No API or runtime changes.
+
 ## 0.1.0 - 2026-06-29
 
 ### Changed (breaking — pre-1.0, beta)

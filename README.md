@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/expys-logo-white.svg" />
-    <img alt="Expys" src="assets/expys-logo-black.svg" width="150" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Utopia-Members-Club-Inc/expys-typescript/main/assets/expys-logo-white.png" />
+    <img alt="Expys" src="https://raw.githubusercontent.com/Utopia-Members-Club-Inc/expys-typescript/main/assets/expys-logo-black.png" width="150" />
   </picture>
 </p>
 
