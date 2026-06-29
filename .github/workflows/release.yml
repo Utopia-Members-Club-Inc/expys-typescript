@@ -10,10 +10,10 @@ name: Publish to npm
 # "built from this commit" attestation) requires `id-token: write` AND a PUBLIC
 # repository. The monorepo is private, so the publish must run from this mirror.
 #
-# Auth: set an NPM_TOKEN repo secret here (an npm granular token with read+write on
-# the @expys scope). After the first publish you may instead configure an npm
-# Trusted Publisher (OIDC) for this repo + workflow and remove the token; provenance
-# keeps working either way.
+# Auth: tokenless via npm Trusted Publishing (OIDC). This repo + workflow are
+# registered as a trusted publisher on @expys/sdk, so `id-token: write` is all that
+# is needed — no NPM_TOKEN. (Bootstrapped: 0.1.0 published with a token, then the
+# trusted publisher was configured and the token removed as of 0.1.1.)
 
 on:
   push:
@@ -73,9 +73,5 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}" node --input-type=module -e "import('./dist/index.mjs').then(m=>{if(m.SDK_VERSION!==process.env.VERSION){throw new Error('embedded SDK_VERSION '+m.SDK_VERSION+' != tag '+process.env.VERSION)} console.log('version ok', m.SDK_VERSION)})"
 
-      - name: 🚀 Publish to npm with provenance
+      - name: 🚀 Publish to npm with provenance (tokenless, via OIDC)
         run: npm publish --provenance --access public
-        env:
-          # First release authenticates with NPM_TOKEN. Once an npm Trusted Publisher
-          # (OIDC) is configured for this repo, the token can be removed.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
