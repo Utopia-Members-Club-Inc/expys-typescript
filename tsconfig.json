@@ -1,0 +1,38 @@
+{
+  // Inlined (rather than `extends ../configs/tsconfig.base.json`) so the package
+  // builds standalone in the public mirror, which has no monorepo siblings. Keep
+  // the shared options below in sync with packages/configs/tsconfig.base.json.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "include": ["./src/**/*.ts", "./examples/**/*.ts"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "baseUrl": "./",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "module": "ESNext",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "composite": true,
+    "jsx": "preserve",
+    "target": "ESNext",
+    "strict": true,
+    "alwaysStrict": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "strictPropertyInitialization": false,
+    "noImplicitAny": true,
+    "noErrorTruncation": true,
+    "noUnusedParameters": true,
+    "noUnusedLocals": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "exactOptionalPropertyTypes": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitThis": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun-types"]
+  }
+}

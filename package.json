@@ -1,0 +1,87 @@
+{
+  "name": "@expys/sdk",
+  "version": "0.1.0",
+  "description": "Official Expys data SDK for TypeScript - embed Expys experiences in web, React Native, and Node apps. Fetch-only, zero runtime dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "expys",
+    "sdk",
+    "api",
+    "experiences",
+    "rewards",
+    "loyalty"
+  ],
+  "homepage": "https://github.com/Utopia-Members-Club-Inc/expys-typescript#readme",
+  "bugs": "https://github.com/Utopia-Members-Club-Inc/expys-typescript/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Utopia-Members-Club-Inc/expys-typescript.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "attw": "attw --pack .",
+    "build": "tsdown",
+    "codegen": "openapi-typescript ../api-spec/v1.sdk.json --output ./src/generated/schema.ts && bun run scripts/generate.spec.version.ts",
+    "codegen:check": "bun run codegen && git diff --exit-code ./src/generated/schema.ts ./src/generated/spec.version.json",
+    "docs": "typedoc",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepublishOnly": "bun run build",
+    "publint": "publint",
+    "size": "size-limit",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "size-limit": [
+    {
+      "name": "ESM dist/index.mjs (brotli)",
+      "path": "dist/index.mjs",
+      "limit": "5 kB"
+    },
+    {
+      "name": "CJS dist/index.cjs (brotli)",
+      "path": "dist/index.cjs",
+      "limit": "5 kB"
+    }
+  ],
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.3",
+    "@size-limit/file": "^12.1.0",
+    "bun-types": "*",
+    "openapi-typescript": "^7.9.1",
+    "publint": "^0.3.21",
+    "size-limit": "^12.1.0",
+    "tsdown": "^0.22.2",
+    "typedoc": "^0.28.0",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "out": "docs-api",
+  "json": "docs-api/docs-model.json",
+  "readme": "README.md",
+  "name": "@expys/sdk",
+  "excludeInternal": true,
+  "githubPages": false,
+  "hideGenerator": true,
+  "sort": ["source-order"],
+  "treatWarningsAsErrors": true,
+  "validation": {
+    "notExported": false,
+    "invalidLink": true,
+    "notDocumented": true
+  },
+  "requiredToBeDocumented": [
+    "Variable",
+    "Function",
+    "Class",
+    "Interface",
+    "TypeAlias",
+    "Method"
+  ]
+}

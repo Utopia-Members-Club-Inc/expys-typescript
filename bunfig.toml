@@ -1,0 +1,5 @@
+[test]
+coverageThreshold = 0.90
+# Emit text for local runs and lcov for Codecov upload in CI (see sdk-ci.yml).
+coverageReporter = ["text", "lcov"]
+coverageDir = "coverage"
