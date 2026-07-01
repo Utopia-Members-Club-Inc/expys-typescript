@@ -387,6 +387,7 @@ export interface components {
             description: string;
             expiresAt: string | null;
             id: string;
+            images: string[];
             kind: string;
             pointsPrice: number | null;
             shortDescription: string;
