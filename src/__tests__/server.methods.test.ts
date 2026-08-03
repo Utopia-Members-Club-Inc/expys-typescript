@@ -210,6 +210,29 @@ describe("server::analytics", () => {
     expect(calls[0].url).toContain("to=2026-02-01T00%3A00%3A00Z");
     expect(calls[0].url).toContain("interval=day");
   });
+
+  it("GETs the org balance and sends the machine credential", async () => {
+    const { calls, client } = serverClientWith({
+      balance: 3800,
+      creditLimit: 1000,
+      lifetimeSpent: 1200,
+      settlementMode: "ORG_POOL",
+    });
+
+    const result = await client.balance();
+
+    expect(result).toEqual({
+      balance: 3800,
+      creditLimit: 1000,
+      lifetimeSpent: 1200,
+      settlementMode: "ORG_POOL",
+    });
+    expect(calls[0].init.method).toBe("GET");
+    expect(calls[0].url).toBe("https://api.test/v1/balance");
+    expect(headerOf(calls[0].init, "Authorization")).toBe(
+      `Bearer ${MACHINE_TOKEN}`,
+    );
+  });
 });
 
 describe("server::webhooks", () => {
@@ -285,6 +308,7 @@ describe("server::credential guard", () => {
       () => client.analyticsSummary(),
       () => client.analyticsOffers(),
       () => client.analyticsTimeseries({ from: "a", interval: "day", to: "b" }),
+      () => client.balance(),
       () => client.createWebhook({ events: [], url: "https://x" }),
       () => client.listWebhooks(),
       () => client.deleteWebhook("wh_1"),

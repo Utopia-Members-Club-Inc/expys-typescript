@@ -7,7 +7,9 @@ import type {
   GetAnalyticsOffersResponse,
   GetAnalyticsSummaryResponse,
   GetAnalyticsTimeseriesResponse,
+  GetBalanceResponse,
   ListConversationsResponse,
+  ListMembersResponse,
   ListMessagesResponse,
   ListRedemptionsResponse,
   ListTransactionsResponse,
@@ -116,6 +118,24 @@ export interface ExpysClient {
   analyticsTimeseries(
     params: AnalyticsTimeseriesParams,
   ): Promise<GetAnalyticsTimeseriesResponse>;
+  /**
+   * The org's points balance, credit limit, lifetime pool spend, and settlement
+   * mode. Server-only: requires an Org-API-Key machine credential with the
+   * `BILLING_READ` scope; calling it with a member token throws a
+   * {@link NotConfiguredError} before any request.
+   *
+   * In `ORG_POOL` mode no per-redemption webhook fires, so poll this to track a
+   * balance your VIPs' bookings are drawing down. An org with no pool yet reports
+   * zeros rather than erroring.
+   *
+   * @returns A {@link GetBalanceResponse}.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @example
+   * ```ts
+   * const { balance, settlementMode } = await expys.balance();
+   * ```
+   */
+  balance(): Promise<GetBalanceResponse>;
   /**
    * Book (request) an offer for the member. Sends an `Idempotency-Key` so a retry
    * replays rather than double-books; override it via `options.idempotencyKey`.
@@ -269,6 +289,21 @@ export interface ExpysClient {
   listConversations(
     params?: ListConversationsParams,
   ): Promise<ListConversationsResponse>;
+  /**
+   * List the org's members, newest-first. Cursor-paginate with `params.cursor`
+   * until the response's `nextCursor` is null. Server-only: requires an
+   * Org-API-Key machine credential; calling it with a member token throws a
+   * {@link NotConfiguredError} before any request.
+   *
+   * @param params - Optional `tier`, `limit`, and pagination `cursor`.
+   * @returns A {@link ListMembersResponse} plus the next `nextCursor`.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @example
+   * ```ts
+   * const { members } = await expys.listMembers({ tier: "gold" });
+   * ```
+   */
+  listMembers(params?: ListMembersParams): Promise<ListMembersResponse>;
   /**
    * List the messages in a conversation. Cursor-paginate with `params.cursor`
    * until the response's `nextCursor` is null.
@@ -442,6 +477,18 @@ export interface ListConversationsParams {
 }
 
 /**
+ * Parameters for {@link ExpysClient.listMembers}.
+ */
+export interface ListMembersParams {
+  /** Pagination cursor from a previous response's `nextCursor`. */
+  cursor?: string;
+  /** Maximum number of members to return (1-100). */
+  limit?: number;
+  /** Return only members whose effective tier matches this value exactly. */
+  tier?: string;
+}
+
+/**
  * Parameters for {@link ExpysClient.listMessages}.
  */
 export interface ListMessagesParams {
@@ -576,6 +623,13 @@ export function initialize(config: ExpysConfig): ExpysClient {
         query: { from: params.from, interval: params.interval, to: params.to },
       });
     },
+    balance: () => {
+      guardServerOnly("balance");
+      return http.request<GetBalanceResponse>({
+        method: "GET",
+        path: "/v1/balance",
+      });
+    },
     createRedemption: (input, options) =>
       http.request<Redemption>({
         body: input,
@@ -641,6 +695,18 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: "/v1/conversations",
         query: { externalUserID: params?.externalUserID },
       }),
+    listMembers: (params) => {
+      guardServerOnly("listMembers");
+      return http.request<ListMembersResponse>({
+        method: "GET",
+        path: "/v1/members",
+        query: {
+          cursor: params?.cursor,
+          limit: params?.limit,
+          tier: params?.tier,
+        },
+      });
+    },
     listMessages: (id, params) =>
       http.request<ListMessagesResponse>({
         method: "GET",

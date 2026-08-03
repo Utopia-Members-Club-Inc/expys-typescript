@@ -124,6 +124,22 @@ export type GetAnalyticsTimeseriesResponse =
   Schemas["GetAnalyticsTimeseriesResponse"];
 
 /**
+ * The result of {@link ExpysClient.balance}: the org's points balance, credit
+ * limit, lifetime pool spend, and settlement mode. Server-only.
+ *
+ * `settlementMode` is `"MEMBER_WALLET"` (redemptions debit each VIP's own wallet,
+ * which you fund with {@link ExpysClient.creditPoints}) or `"ORG_POOL"`
+ * (redemptions debit this org-level balance directly and you never maintain
+ * per-VIP balances).
+ *
+ * @example
+ * ```ts
+ * const { balance, settlementMode }: GetBalanceResponse = await expys.balance();
+ * ```
+ */
+export type GetBalanceResponse = Schemas["GetBalanceResponse"];
+
+/**
  * The member's {@link Conversation}s. This response is not cursor-paginated, so
  * it has no `nextCursor`.
  *
@@ -136,6 +152,18 @@ export type GetAnalyticsTimeseriesResponse =
  * ```
  */
 export type ListConversationsResponse = Schemas["ListConversationsResponse"];
+
+/**
+ * A page of {@link MemberSummary} records plus the `nextCursor` to fetch the
+ * following page (`null` when the list is exhausted).
+ *
+ * @example
+ * ```ts
+ * const page: ListMembersResponse = await expys.listMembers({ tier: "gold" });
+ * const more = page.nextCursor !== null;
+ * ```
+ */
+export type ListMembersResponse = Schemas["ListMembersResponse"];
 
 /**
  * A page of {@link Message}s plus the `nextCursor` to fetch the following page
