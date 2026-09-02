@@ -245,6 +245,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/offers/{id}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set the calling org's own display price for one experience */
+        put: operations["setOfferPrice"];
+        post?: never;
+        /** Clear the org's authored price, reverting to the derived figure */
+        delete: operations["deleteOfferPrice"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/redemptions": {
         parameters: {
             query?: never;
@@ -410,6 +428,8 @@ export interface components {
         Display: {
             amount: number;
             currency: components["schemas"]["Currency"];
+            /** @enum {string} */
+            source: "AUTHORED" | "DERIVED";
         } | null;
         GetAnalyticsOffersResponse: {
             offers: components["schemas"]["OfferAnalytics"][];
@@ -574,6 +594,9 @@ export interface components {
             displayName: string | null;
             externalUserID: string;
             tier: string;
+        };
+        SetOfferPriceRequest: {
+            amount: number;
         };
         TimeseriesBucket: {
             endTime: string;
@@ -1734,6 +1757,130 @@ export interface operations {
         };
     };
     getOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setOfferPrice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetOfferPriceRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteOfferPrice: {
         parameters: {
             query?: never;
             header?: never;
