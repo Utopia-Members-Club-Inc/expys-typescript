@@ -69,7 +69,7 @@ describe("server::creditPoints", () => {
   it("posts amount/externalUserID and auto-generates an idempotency key", async () => {
     const response = {
       balance: 150,
-      currency: { name: "Points", symbol: "P" },
+      currency: { name: "Points", symbol: "P", unitsPerUSD: 100 },
     };
     const { calls, client } = serverClientWith(response);
 
@@ -214,8 +214,13 @@ describe("server::analytics", () => {
   it("GETs the org balance and sends the machine credential", async () => {
     const { calls, client } = serverClientWith({
       balance: 3800,
+      balanceDisplay: 38,
+      balanceUSD: 38,
       creditLimit: 1000,
+      creditLimitUSD: 10,
       lifetimeSpent: 1200,
+      lifetimeSpentUSD: 12,
+      ratePerPoint: 0.01,
       settlementMode: "ORG_POOL",
     });
 
@@ -223,8 +228,13 @@ describe("server::analytics", () => {
 
     expect(result).toEqual({
       balance: 3800,
+      balanceDisplay: 38,
+      balanceUSD: 38,
       creditLimit: 1000,
+      creditLimitUSD: 10,
       lifetimeSpent: 1200,
+      lifetimeSpentUSD: 12,
+      ratePerPoint: 0.01,
       settlementMode: "ORG_POOL",
     });
     expect(calls[0].init.method).toBe("GET");

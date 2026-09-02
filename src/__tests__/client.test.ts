@@ -98,6 +98,8 @@ describe("client::redemptions", () => {
 
   it("creates a redemption, auto-generating an idempotency key", async () => {
     const redemption = {
+      canceledNote: null,
+      canceledReason: null,
       createdAt: "2026-01-01T00:00:00Z",
       endAt: null,
       id: "r1",
@@ -367,9 +369,15 @@ describe("client::eligibility and wallet", () => {
   it("reads the wallet", async () => {
     const wallet = {
       amountReceived: 0,
+      amountReceivedDisplay: 0,
+      amountReceivedUSD: 0,
       amountSpent: 0,
+      amountSpentDisplay: 0,
+      amountSpentUSD: 0,
       balance: 100,
-      currency: { name: "Points", symbol: "PT" },
+      balanceDisplay: 100,
+      balanceUSD: 1,
+      currency: { name: "Points", symbol: "PT", unitsPerUSD: 100 },
     };
     const { calls, client } = clientWith(wallet);
     const result = await client.wallet();

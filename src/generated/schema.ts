@@ -89,6 +89,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Update the org's display currency and its dollar ratio */
+        put: operations["updateConfiguration"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/conversations": {
         parameters: {
             query?: never;
@@ -203,6 +220,23 @@ export interface paths {
         };
         /** List offers available to the authenticated org */
         get: operations["listOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/offers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a single offer by id */
+        get: operations["getOffer"];
         put?: never;
         post?: never;
         delete?: never;
@@ -336,6 +370,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Availability: {
+            isAvailable: boolean;
+            quantityRemaining: number;
+        };
         Conversation: {
             id: string;
             lastMessageAt: string | null;
@@ -363,11 +401,16 @@ export interface components {
         Currency: {
             name: string;
             symbol: string;
+            unitsPerUSD: number;
         };
         DeleteWebhookResponse: {
             id: string;
             ok: boolean;
         };
+        Display: {
+            amount: number;
+            currency: components["schemas"]["Currency"];
+        } | null;
         GetAnalyticsOffersResponse: {
             offers: components["schemas"]["OfferAnalytics"][];
         };
@@ -383,10 +426,19 @@ export interface components {
         };
         GetBalanceResponse: {
             balance: number;
+            balanceDisplay: number;
+            balanceUSD: number;
             creditLimit: number;
+            creditLimitUSD: number;
             lifetimeSpent: number;
+            lifetimeSpentUSD: number;
+            ratePerPoint: number;
             /** @enum {string} */
             settlementMode: "MEMBER_WALLET" | "ORG_POOL";
+        };
+        Inclusions: {
+            group: string;
+            name: string;
         };
         ListConversationsResponse: {
             conversations: components["schemas"]["Conversation"][];
@@ -407,6 +459,14 @@ export interface components {
             nextCursor: string | null;
             transactions: components["schemas"]["Transaction"][];
         };
+        Location: {
+            address: string | null;
+            city: string | null;
+            countryCode: string | null;
+            display: string;
+            state: string | null;
+            venue: string | null;
+        } | null;
         MemberEligibility: {
             tier: string;
             wallet: components["schemas"]["Wallet"];
@@ -429,15 +489,24 @@ export interface components {
             type: string;
         };
         Offer: {
+            availability: components["schemas"]["Availability"];
             description: string;
+            disclaimer: string | null;
+            display: components["schemas"]["Display"];
+            endAt: string | null;
             expiresAt: string | null;
             id: string;
             images: string[];
+            inclusions: components["schemas"]["Inclusions"][];
             kind: string;
+            location: components["schemas"]["Location"];
+            maxGuests: number | null;
             pointsPrice: number | null;
             shortDescription: string;
+            startAt: string | null;
             title: string;
             type: string;
+            valueUSD: number | null;
         };
         OfferAnalytics: {
             cancellations: number;
@@ -451,6 +520,9 @@ export interface components {
             nextCursor: string | null;
         };
         Redemption: {
+            canceledNote: string | null;
+            /** @enum {string|null} */
+            canceledReason: "SOLD_OUT" | "VENDOR_DECLINED" | "DATE_UNAVAILABLE" | "MEMBER_REQUESTED" | "EXPIRED" | "OTHER" | null;
             createdAt: string;
             endAt: string | null;
             id: string;
@@ -528,10 +600,27 @@ export interface components {
             redemptionID: string | null;
             type: string;
         };
+        UpdateConfigurationRequest: {
+            confirmReprice?: boolean;
+            currencyName?: string;
+            currencySymbol?: string;
+            currencyUnitsPerUSD?: number;
+        };
+        UpdateConfigurationResponse: {
+            currencyName: string;
+            currencySymbol: string;
+            currencyUnitsPerUSD: number;
+        };
         Wallet: {
             amountReceived: number;
+            amountReceivedDisplay: number;
+            amountReceivedUSD: number;
             amountSpent: number;
+            amountSpentDisplay: number;
+            amountSpentUSD: number;
             balance: number;
+            balanceDisplay: number;
+            balanceUSD: number;
             currency: components["schemas"]["Currency"];
         };
         WebhookEndpoint: {
@@ -834,6 +923,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetBalanceResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConfigurationRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateConfigurationResponse"];
                 };
             };
             /** @description Authentication is missing or invalid. */
@@ -1514,6 +1665,7 @@ export interface operations {
     listOffers: {
         parameters: {
             query?: {
+                available?: boolean;
                 cursor?: string;
                 limit?: number;
             };
@@ -1554,6 +1706,66 @@ export interface operations {
             };
             /** @description The request failed validation. */
             422: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getOffer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offer"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
                 headers: {
                     /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
                     "X-Request-Id"?: string;
