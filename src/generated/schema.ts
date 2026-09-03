@@ -148,7 +148,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Server-Sent Events stream of a member's conversation. Each event is `data: <PublicMessage JSON>` (id, authorID, type, body, createdAt). Comment lines `: heartbeat` keep the connection alive. Only NEW, member-visible messages are sent; use the messages endpoint for history. */
+        /**
+         * Stream a member's conversation over SSE
+         * @description Server-Sent Events stream of a member's conversation. Each event is `data: <PublicMessage JSON>` (id, authorID, type, body, createdAt). Comment lines `: heartbeat` keep the connection alive. Only NEW, member-visible messages are sent; use the messages endpoint for history.
+         */
         get: operations["streamMessages"];
         put?: never;
         post?: never;
@@ -543,6 +546,7 @@ export interface components {
             canceledNote: string | null;
             /** @enum {string|null} */
             canceledReason: "SOLD_OUT" | "VENDOR_DECLINED" | "DATE_UNAVAILABLE" | "MEMBER_REQUESTED" | "EXPIRED" | "OTHER" | null;
+            conversationId: string | null;
             createdAt: string;
             endAt: string | null;
             id: string;

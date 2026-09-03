@@ -100,6 +100,9 @@ describe("client::redemptions", () => {
     const redemption = {
       canceledNote: null,
       canceledReason: null,
+      /// The booking's concierge thread, returned on the create so a client can open
+      /// the conversation without a second call.
+      conversationId: "r1",
       createdAt: "2026-01-01T00:00:00Z",
       endAt: null,
       id: "r1",

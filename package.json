@@ -1,6 +1,6 @@
 {
   "name": "@expys/sdk",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Official Expys data SDK for TypeScript - embed Expys experiences in web, React Native, and Node apps. Fetch-only, zero runtime dependencies.",
   "license": "MIT",
   "type": "module",
