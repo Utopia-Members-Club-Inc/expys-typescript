@@ -434,3 +434,102 @@ describe("client::configuration", () => {
     expect(calls[0].url).toBe(`${DEFAULT_BASE_URL}/v1/wallet`);
   });
 });
+
+/// The Phase 12-16 surface. These shipped as generated MODELS in 0.7.0 with no client
+/// methods, so a consumer had types for endpoints they could not call.
+describe("interests, terms and feedback", () => {
+  it("creates an interest and sends an idempotency key", async () => {
+    const interest = {
+      conversationId: "req_1",
+      createdAt: "t",
+      id: "req_1",
+      intake: null,
+      offer: "off_1",
+      status: "submitted",
+    };
+    const { calls, client } = clientWith(interest);
+
+    const result = await client.createInterest({
+      adults: 2,
+      offer: "off_1",
+      preferredDates: ["2099-11-06"],
+    });
+
+    expect(result).toEqual(interest);
+    expect(calls[0].url).toBe("https://api.test/v1/interests");
+    expect(calls[0].init.method).toBe("POST");
+    expect(headerOf(calls[0].init, "Idempotency-Key")).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
+  });
+
+  it("encodes the interest id on every path that takes one", async () => {
+    // The id is opaque and comes from us, but encoding it is what stops a future id
+    // format from silently breaking the route.
+    const { calls, client } = clientWith({});
+
+    await client.getInterest("req 1");
+    await client.setInterestIntake("req 1", { adults: 2 });
+    await client.startPhoneVerification("req 1");
+    await client.confirmPhoneVerification("req 1", { code: "123456" });
+
+    expect(calls[0].url).toBe("https://api.test/v1/interests/req%201");
+    expect(calls[1].url).toBe("https://api.test/v1/interests/req%201/intake");
+    expect(calls[2].url).toBe(
+      "https://api.test/v1/interests/req%201/phone/verification",
+    );
+    expect(calls[2].init.method).toBe("POST");
+    expect(calls[3].init.method).toBe("PUT");
+  });
+
+  it("lists terms and passes externalUserID through", async () => {
+    const { calls, client } = clientWith({ documents: [] });
+
+    await client.getTerms({ externalUserID: "u1" });
+
+    expect(calls[0].url).toContain("https://api.test/v1/terms?");
+    expect(calls[0].url).toContain("externalUserID=u1");
+  });
+
+  it("fetches one version's content by id", async () => {
+    const { calls, client } = clientWith({
+      contentHTML: "<h1>Terms</h1>",
+      publishedAt: "t",
+      renderedHash: "abc",
+      type: "TERMS_OF_SERVICE",
+      version: "ldv_1",
+    });
+
+    const result = await client.getTermsContent("ldv_1");
+
+    expect(result.contentHTML).toBe("<h1>Terms</h1>");
+    expect(calls[0].url).toBe("https://api.test/v1/terms/ldv_1/content");
+  });
+
+  it("records acceptance idempotently", async () => {
+    const { calls, client } = clientWith({ documents: [] });
+
+    await client.acceptTerms({ versions: ["ldv_1", "ldv_2"] });
+
+    expect(calls[0].url).toBe("https://api.test/v1/terms/acceptance");
+    expect(calls[0].init.method).toBe("POST");
+    expect(calls[0].init.body).toBe(
+      JSON.stringify({ versions: ["ldv_1", "ldv_2"] }),
+    );
+    expect(headerOf(calls[0].init, "Idempotency-Key")).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
+  });
+
+  it("submits feedback against a redemption", async () => {
+    const { calls, client } = clientWith({});
+
+    await client.setRedemptionFeedback("req_1", {
+      comment: "Superb.",
+      rating: 9,
+    });
+
+    expect(calls[0].url).toBe("https://api.test/v1/redemptions/req_1/feedback");
+    expect(calls[0].init.method).toBe("PUT");
+  });
+});

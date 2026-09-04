@@ -1,5 +1,22 @@
 import type { components } from "./generated/schema";
 
+/** Body of {@link ExpysClient.acceptTerms}. */
+export type AcceptTermsRequest = Schemas["AcceptTermsRequest"];
+
+/** One file on a message: a ticket, an itinerary, a photo. */
+export type Attachment = Schemas["Attachments"];
+
+/** Body of {@link ExpysClient.confirmPhoneVerification}. */
+export type ConfirmPhoneVerificationRequest =
+  Schemas["ConfirmPhoneVerificationRequest"];
+
+/**
+ * Result of confirming a code. `verified: false` means it was wrong or expired - an
+ * ordinary thing for somebody to do, not an error.
+ */
+export type ConfirmPhoneVerificationResponse =
+  Schemas["ConfirmPhoneVerificationResponse"];
+
 /**
  * A conversation between a member and the org (e.g. a support thread).
  *
@@ -11,6 +28,12 @@ import type { components } from "./generated/schema";
  * ```
  */
 export type Conversation = Schemas["Conversation"];
+
+/** Body of {@link ExpysClient.createInterest}. */
+export type CreateInterestRequest = Schemas["CreateInterestRequest"];
+
+/** An interest: a concierge conversation and the member's intake, with nothing debited. */
+export type CreateInterestResponse = Schemas["CreateInterestResponse"];
 
 /**
  * The body for {@link ExpysClient.createRedemption}: the `offer` to book and,
@@ -83,6 +106,9 @@ export type Currency = Schemas["Currency"];
  */
 export type DeleteWebhookResponse = Schemas["DeleteWebhookResponse"];
 
+/** A member's score for an experience they have had. */
+export type Feedback = Schemas["Feedback"];
+
 /**
  * The result of {@link ExpysClient.analyticsOffers}: per-offer analytics rollups.
  * Server-only.
@@ -138,6 +164,29 @@ export type GetAnalyticsTimeseriesResponse =
  * ```
  */
 export type GetBalanceResponse = Schemas["GetBalanceResponse"];
+
+/**
+ * One version's text, rendered for your organisation. `contentHTML` is a complete HTML
+ * fragment; `renderedHash` is the sha256 of exactly what was returned.
+ */
+export type GetTermsContentResponse = Schemas["GetTermsContentResponse"];
+
+/** Response of {@link ExpysClient.getTerms} and {@link ExpysClient.acceptTerms}. */
+export type GetTermsResponse = Schemas["GetTermsResponse"];
+
+/**
+ * The logistics a member supplied. The dietary, allergy and accessibility answers are
+ * NOT here: they go to the concierge team and are never stored, so only
+ * `sensitiveDetailsSentAt` records that they were sent.
+ */
+export type Intake = Schemas["Intake"];
+
+/**
+ * A published legal document a member has, or has not, accepted. `acceptedAt` is null
+ * when this exact version is outstanding - including when they accepted an earlier
+ * version of the same document, which is the whole point of versioning.
+ */
+export type LegalDocument = Schemas["LegalDocument"];
 
 /**
  * The member's {@link Conversation}s. This response is not cursor-paginated, so
@@ -294,6 +343,9 @@ export type RemoveMemberResponse = Schemas["RemoveMemberResponse"];
  */
 export type SendMessageResponse = Schemas["SendMessageResponse"];
 
+/** Body of {@link ExpysClient.setInterestIntake}. */
+export type SetInterestIntakeRequest = Schemas["SetInterestIntakeRequest"];
+
 /**
  * The body for {@link ExpysClient.setMember}: optional `tier`, `displayName`, and
  * `attributes` to upsert on the member. Server-only.
@@ -317,6 +369,14 @@ export type SetMemberRequest = Schemas["SetMemberRequest"];
  * ```
  */
 export type SetMemberResponse = Schemas["SetMemberResponse"];
+
+/** Body of {@link ExpysClient.setRedemptionFeedback}. */
+export type SetRedemptionFeedbackRequest =
+  Schemas["SetRedemptionFeedbackRequest"];
+
+/** Response of {@link ExpysClient.startPhoneVerification}. */
+export type StartPhoneVerificationResponse =
+  Schemas["StartPhoneVerificationResponse"];
 
 /**
  * The server-to-server body for `POST /v1/auth/exchange`, sent by the consumer's

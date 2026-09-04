@@ -1,4 +1,9 @@
 import type {
+  AcceptTermsRequest,
+  ConfirmPhoneVerificationRequest,
+  ConfirmPhoneVerificationResponse,
+  CreateInterestRequest,
+  CreateInterestResponse,
   CreateRedemptionRequest,
   CreateWebhookRequest,
   CreditWalletRequest,
@@ -8,6 +13,8 @@ import type {
   GetAnalyticsSummaryResponse,
   GetAnalyticsTimeseriesResponse,
   GetBalanceResponse,
+  GetTermsContentResponse,
+  GetTermsResponse,
   ListConversationsResponse,
   ListMembersResponse,
   ListMessagesResponse,
@@ -20,8 +27,11 @@ import type {
   Redemption,
   RemoveMemberResponse,
   SendMessageResponse,
+  SetInterestIntakeRequest,
   SetMemberRequest,
   SetMemberResponse,
+  SetRedemptionFeedbackRequest,
+  StartPhoneVerificationResponse,
   TokenExchangeRequest,
   TokenGrant,
   Wallet,
@@ -71,6 +81,26 @@ export interface EligibilityParams {
  * ```
  */
 export interface ExpysClient {
+  /**
+   * Record that the member accepted one or more document versions. Sends an
+   * `Idempotency-Key` so a retry replays rather than double-records.
+   *
+   * Re-accepting a version already on file is a no-op, not an error.
+   *
+   * @param input - The `versions` to accept (and optionally the `externalUserID` a
+   *   machine token acts for).
+   * @param options - Optional per-call write options such as a custom idempotency key.
+   * @returns The same shape as {@link ExpysClient.getTerms}, with `acceptedAt`
+   *   populated, so a consent sheet can dismiss without a second call.
+   * @example
+   * ```ts
+   * await expys.acceptTerms({ versions: [doc.version] });
+   * ```
+   */
+  acceptTerms(
+    input: AcceptTermsRequest,
+    options?: WriteOptions,
+  ): Promise<GetTermsResponse>;
   /**
    * Per-offer analytics rollups for the org. Server-only: requires an Org-API-Key
    * machine credential; calling it with a member token throws a
@@ -136,6 +166,43 @@ export interface ExpysClient {
    * ```
    */
   balance(): Promise<GetBalanceResponse>;
+  /**
+   * Confirm a phone verification code.
+   *
+   * @param id - The interest id.
+   * @param input - The `code` the member typed back.
+   * @returns `{ verified }`. **False is not an error** - the code was wrong or expired,
+   *   which is an ordinary thing for somebody to do. Ask again.
+   */
+  confirmPhoneVerification(
+    id: string,
+    input: ConfirmPhoneVerificationRequest,
+  ): Promise<ConfirmPhoneVerificationResponse>;
+  /**
+   * Register interest in an experience: opens a concierge conversation and carries the
+   * member's dates, with **no points debited and no inventory held**. Sends an
+   * `Idempotency-Key` so a retry replays rather than double-registers.
+   *
+   * Dietary, allergy and accessibility answers are **not** accepted here - send them
+   * to {@link ExpysClient.setInterestIntake}, which does not store them.
+   *
+   * @param input - The `offer` plus any intake fields already known.
+   * @param options - Optional per-call write options such as a custom idempotency key.
+   * @returns The interest, including a `conversationId` that is live immediately.
+   * @example
+   * ```ts
+   * const interest = await expys.createInterest({
+   *   offer: "off_123",
+   *   preferredDates: ["2026-11-06"],
+   *   adults: 2,
+   * });
+   * await expys.sendMessage(interest.conversationId!, "Any chance of the 7th?");
+   * ```
+   */
+  createInterest(
+    input: CreateInterestRequest,
+    options?: WriteOptions,
+  ): Promise<CreateInterestResponse>;
   /**
    * Book (request) an offer for the member. Sends an `Idempotency-Key` so a retry
    * replays rather than double-books; override it via `options.idempotencyKey`.
@@ -250,6 +317,13 @@ export interface ExpysClient {
     options?: WriteOptions,
   ): Promise<TokenGrant>;
   /**
+   * Read an interest and its intake.
+   *
+   * @param id - The interest id.
+   * @returns The interest.
+   */
+  getInterest(id: string): Promise<CreateInterestResponse>;
+  /**
    * Read a member's profile by their external id. Server-only: requires an
    * Org-API-Key machine credential; calling it with a member token throws a
    * {@link NotConfiguredError} before any request.
@@ -275,6 +349,33 @@ export interface ExpysClient {
    * ```
    */
   getRedemption(id: string): Promise<Redemption>;
+  /**
+   * List the legal documents this member has and has not accepted.
+   *
+   * Metadata only - safe to call on every launch. The document text is a separate,
+   * cacheable call: see {@link ExpysClient.getTermsContent}.
+   *
+   * @param params - Optionally the `externalUserID` a machine token acts for.
+   * @returns Each document with its current `version` and an `acceptedAt` that is null
+   *   while outstanding - including when the member accepted an earlier version.
+   * @example
+   * ```ts
+   * const { documents } = await expys.getTerms();
+   * const outstanding = documents.filter((d) => d.acceptedAt === null);
+   * ```
+   */
+  getTerms(params?: GetTermsParams): Promise<GetTermsResponse>;
+  /**
+   * Read one version's text, rendered for your organisation.
+   *
+   * A published version never changes, so this response is stable forever and is served
+   * `Cache-Control: immutable`. Fetch it when the consent sheet opens, not on launch -
+   * the terms of service are around 28kB.
+   *
+   * @param version - The version id from {@link ExpysClient.getTerms}.
+   * @returns `contentHTML` (a complete HTML fragment to render) and `renderedHash`.
+   */
+  getTermsContent(version: string): Promise<GetTermsContentResponse>;
   /**
    * List the member's conversations.
    *
@@ -402,6 +503,22 @@ export interface ExpysClient {
     options?: WriteOptions,
   ): Promise<SendMessageResponse>;
   /**
+   * Replace an interest's intake. Send the complete answer each time - a partial merge
+   * over a set of dates has no sane meaning.
+   *
+   * The `dietary`, `allergies` and `accessibility` fields are forwarded to the concierge
+   * team and **never stored**: you can send them, you cannot read them back, and the
+   * response records only when they were sent.
+   *
+   * @param id - The interest id.
+   * @param input - The whole intake block.
+   * @returns The interest with its updated intake.
+   */
+  setInterestIntake(
+    id: string,
+    input: SetInterestIntakeRequest,
+  ): Promise<CreateInterestResponse>;
+  /**
    * Upsert a member's profile (tier, display name, attributes) by their external
    * id. Idempotent by HTTP semantics (PUT), so no idempotency key is sent.
    * Server-only: requires an Org-API-Key machine credential; calling it with a
@@ -420,6 +537,30 @@ export interface ExpysClient {
     externalUserID: string,
     input: SetMemberRequest,
   ): Promise<SetMemberResponse>;
+  /**
+   * Record a member's score for a completed experience. 0-10, the NPS scale.
+   *
+   * @param id - The redemption id.
+   * @param input - The `rating` and an optional `comment`.
+   * @returns The redemption, now carrying `feedback`.
+   * @throws A {@link ValidationError} with `code === "REDEMPTION_NOT_COMPLETED"` when
+   *   the experience has not happened yet; its `details.status` names the current one.
+   */
+  setRedemptionFeedback(
+    id: string,
+    input: SetRedemptionFeedbackRequest,
+  ): Promise<Redemption>;
+  /**
+   * Send a verification code to the number on an interest's intake.
+   *
+   * Until a number is verified it is display-only and the concierge team will not text
+   * it: an unverified number is one typo away from sending a stranger somebody else's
+   * itinerary.
+   *
+   * @param id - The interest id.
+   * @returns `{ sent }`.
+   */
+  startPhoneVerification(id: string): Promise<StartPhoneVerificationResponse>;
   /**
    * Stream new, member-visible messages in a conversation over Server-Sent
    * Events as they arrive. Returns a lazy `AsyncIterable<Message>`; consume it
@@ -466,6 +607,14 @@ export interface ExpysClient {
   walletTransactions(
     params?: WalletTransactionsParams,
   ): Promise<ListTransactionsResponse>;
+}
+
+/**
+ * Parameters for {@link ExpysClient.getTerms}.
+ */
+export interface GetTermsParams {
+  /** Names the member when a machine token calls on their behalf. */
+  externalUserID?: string;
 }
 
 /**
@@ -601,6 +750,13 @@ export function initialize(config: ExpysConfig): ExpysClient {
 
   return {
     wallet: () => http.request<Wallet>({ method: "GET", path: "/v1/wallet" }),
+    acceptTerms: (input, options) =>
+      http.request<GetTermsResponse>({
+        body: input,
+        idempotencyKey: options?.idempotencyKey ?? generateIdempotencyKey(),
+        method: "POST",
+        path: "/v1/terms/acceptance",
+      }),
     analyticsOffers: () => {
       guardServerOnly("analyticsOffers");
       return http.request<GetAnalyticsOffersResponse>({
@@ -630,6 +786,19 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: "/v1/balance",
       });
     },
+    confirmPhoneVerification: (id, input) =>
+      http.request<ConfirmPhoneVerificationResponse>({
+        body: input,
+        method: "PUT",
+        path: `/v1/interests/${encodeURIComponent(id)}/phone/verification`,
+      }),
+    createInterest: (input, options) =>
+      http.request<CreateInterestResponse>({
+        body: input,
+        idempotencyKey: options?.idempotencyKey ?? generateIdempotencyKey(),
+        method: "POST",
+        path: "/v1/interests",
+      }),
     createRedemption: (input, options) =>
       http.request<Redemption>({
         body: input,
@@ -677,6 +846,11 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: "/v1/auth/exchange",
       });
     },
+    getInterest: (id) =>
+      http.request<CreateInterestResponse>({
+        method: "GET",
+        path: `/v1/interests/${encodeURIComponent(id)}`,
+      }),
     getMember: (externalUserID) => {
       guardServerOnly("getMember");
       return http.request<MemberSummary>({
@@ -688,6 +862,17 @@ export function initialize(config: ExpysConfig): ExpysClient {
       http.request<Redemption>({
         method: "GET",
         path: `/v1/redemptions/${encodeURIComponent(id)}`,
+      }),
+    getTerms: (params) =>
+      http.request<GetTermsResponse>({
+        method: "GET",
+        path: "/v1/terms",
+        query: { externalUserID: params?.externalUserID },
+      }),
+    getTermsContent: (version) =>
+      http.request<GetTermsContentResponse>({
+        method: "GET",
+        path: `/v1/terms/${encodeURIComponent(version)}/content`,
       }),
     listConversations: (params) =>
       http.request<ListConversationsResponse>({
@@ -761,6 +946,12 @@ export function initialize(config: ExpysConfig): ExpysClient {
         method: "POST",
         path: `/v1/conversations/${encodeURIComponent(id)}/messages`,
       }),
+    setInterestIntake: (id, input) =>
+      http.request<CreateInterestResponse>({
+        body: input,
+        method: "PUT",
+        path: `/v1/interests/${encodeURIComponent(id)}/intake`,
+      }),
     setMember: (externalUserID, input) => {
       guardServerOnly("setMember");
       return http.request<SetMemberResponse>({
@@ -769,6 +960,17 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: `/v1/members/${encodeURIComponent(externalUserID)}`,
       });
     },
+    setRedemptionFeedback: (id, input) =>
+      http.request<Redemption>({
+        body: input,
+        method: "PUT",
+        path: `/v1/redemptions/${encodeURIComponent(id)}/feedback`,
+      }),
+    startPhoneVerification: (id) =>
+      http.request<StartPhoneVerificationResponse>({
+        method: "POST",
+        path: `/v1/interests/${encodeURIComponent(id)}/phone/verification`,
+      }),
     streamMessages: (id) =>
       streamSse({
         baseUrl,
