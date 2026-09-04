@@ -178,6 +178,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/interests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register interest in an experience, with optional intake
+         * @description Creates a non-committing interest: a concierge conversation and a place for the member's dates, with no points debited and no inventory held. Dietary, allergy and accessibility answers are not accepted here - send them to the intake endpoint, which does not store them.
+         */
+        post: operations["createInterest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/interests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read an interest and its intake */
+        get: operations["getInterest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/interests/{id}/intake": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace an interest's intake
+         * @description Replaces the whole intake block, so send the complete answer each time. Dietary, allergy and accessibility answers are forwarded to the concierge team and are never stored: they are accepted here, they are not returned, and the response records only when they were sent.
+         */
+        put: operations["setInterestIntake"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/interests/{id}/phone/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Confirm a verification code
+         * @description `verified: false` means the code was wrong or expired - an ordinary thing for somebody to do, not an error. Ask again.
+         */
+        put: operations["confirmPhoneVerification"];
+        /**
+         * Send a verification code to the number on an interest's intake
+         * @description Until a number is verified it is display-only: the concierge team will not text it. An unverified number is one typo away from sending a stranger somebody else's itinerary.
+         */
+        post: operations["startPhoneVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/members": {
         parameters: {
             query?: never;
@@ -301,6 +382,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/redemptions/{id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Record a member's rating for a completed experience
+         * @description 0-10, the NPS scale. Only accepted once the redemption is COMPLETED - a score against a booking still awaiting a vendor is feedback about waiting, not about an experience. Submitting again replaces the previous answer.
+         */
+        put: operations["setRedemptionFeedback"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the legal documents a member has and has not accepted
+         * @description Metadata only, safe to call on every launch. `acceptedAt` is null when the member has not accepted the CURRENT version - an acceptance of a superseded version reads as outstanding.
+         */
+        get: operations["getTerms"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/terms/acceptance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a member accepted one or more document versions
+         * @description Re-accepting a version already on file is a no-op, not an error. The response is the same shape as GET /v1/terms, so a client can render the outcome without a second call.
+         */
+        post: operations["acceptTerms"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/terms/{version}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one version's text, rendered for the caller's organisation
+         * @description The document names your organisation as counterparty. Versions are immutable, so this response is cacheable indefinitely. `renderedHash` is the sha256 of exactly the html returned.
+         */
+        get: operations["getTermsContent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/wallet": {
         parameters: {
             query?: never;
@@ -391,9 +552,24 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptTermsRequest: {
+            externalUserID?: string;
+            versions: string[];
+        };
+        Attachments: {
+            expiresAt: string;
+            name: string;
+            url: string | null;
+        };
         Availability: {
             isAvailable: boolean;
             quantityRemaining: number;
+        };
+        ConfirmPhoneVerificationRequest: {
+            code: string;
+        };
+        ConfirmPhoneVerificationResponse: {
+            verified: boolean;
         };
         Conversation: {
             id: string;
@@ -401,8 +577,32 @@ export interface components {
             title: string | null;
             type: string;
         };
+        CreateInterestRequest: {
+            adults?: number;
+            blackoutDates?: string[];
+            children?: number;
+            /** @enum {string} */
+            contactMethod?: "APP_CHAT" | "SMS" | "EMAIL" | "PHONE";
+            /** @enum {string} */
+            contactWindow?: "MORNING" | "AFTERNOON" | "EVENING" | "ANYTIME";
+            externalUserID?: string;
+            /** @enum {string} */
+            occasion?: "BIRTHDAY" | "ANNIVERSARY" | "ENGAGEMENT" | "WEDDING" | "GRADUATION" | "PROMOTION" | "BUSINESS" | "OTHER";
+            offer: string;
+            phone?: string;
+            preferredDates?: string[];
+        };
+        CreateInterestResponse: {
+            conversationId: string | null;
+            createdAt: string;
+            id: string;
+            intake: components["schemas"]["Intake"];
+            offer: string;
+            status: string;
+        };
         CreateRedemptionRequest: {
             externalUserID?: string;
+            interest?: string;
             offer: string;
         };
         CreateWebhookRequest: {
@@ -434,6 +634,11 @@ export interface components {
             /** @enum {string} */
             source: "AUTHORED" | "DERIVED";
         } | null;
+        Feedback: {
+            comment: string | null;
+            rating: number;
+            submittedAt: string;
+        } | null;
         GetAnalyticsOffersResponse: {
             offers: components["schemas"]["OfferAnalytics"][];
         };
@@ -459,9 +664,42 @@ export interface components {
             /** @enum {string} */
             settlementMode: "MEMBER_WALLET" | "ORG_POOL";
         };
+        GetTermsContentResponse: {
+            contentHTML: string;
+            publishedAt: string;
+            renderedHash: string;
+            /** @enum {string} */
+            type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY";
+            version: string;
+        };
+        GetTermsResponse: {
+            documents: components["schemas"]["LegalDocument"][];
+        };
         Inclusions: {
             group: string;
             name: string;
+        };
+        Intake: {
+            adults: number | null;
+            blackoutDates: string[];
+            children: number | null;
+            /** @enum {string|null} */
+            contactMethod: "APP_CHAT" | "SMS" | "EMAIL" | "PHONE" | null;
+            /** @enum {string|null} */
+            contactWindow: "MORNING" | "AFTERNOON" | "EVENING" | "ANYTIME" | null;
+            /** @enum {string|null} */
+            occasion: "BIRTHDAY" | "ANNIVERSARY" | "ENGAGEMENT" | "WEDDING" | "GRADUATION" | "PROMOTION" | "BUSINESS" | "OTHER" | null;
+            phone: string | null;
+            phoneVerified: boolean;
+            preferredDates: string[];
+            sensitiveDetailsSentAt: string | null;
+        } | null;
+        LegalDocument: {
+            acceptedAt: string | null;
+            publishedAt: string;
+            /** @enum {string} */
+            type: "TERMS_OF_SERVICE" | "PRIVACY_POLICY";
+            version: string;
         };
         ListConversationsResponse: {
             conversations: components["schemas"]["Conversation"][];
@@ -505,6 +743,7 @@ export interface components {
             wallet: components["schemas"]["Wallet"];
         };
         Message: {
+            attachments: components["schemas"]["Attachments"][];
             authorID: string;
             body: string | null;
             createdAt: string;
@@ -532,10 +771,12 @@ export interface components {
             valueUSD: number | null;
         };
         OfferAnalytics: {
+            averageRating: number | null;
             cancellations: number;
             completions: number;
             offerId: string;
             pointsSpent: number;
+            ratingCount: number;
             signups: number;
         };
         OfferList: {
@@ -549,6 +790,7 @@ export interface components {
             conversationId: string | null;
             createdAt: string;
             endAt: string | null;
+            feedback: components["schemas"]["Feedback"];
             id: string;
             offer: string;
             startAt: string | null;
@@ -584,6 +826,22 @@ export interface components {
         SendMessageResponse: {
             ok: boolean;
         };
+        SetInterestIntakeRequest: {
+            accessibility?: string;
+            adults?: number;
+            allergies?: string;
+            blackoutDates?: string[];
+            children?: number;
+            /** @enum {string} */
+            contactMethod?: "APP_CHAT" | "SMS" | "EMAIL" | "PHONE";
+            /** @enum {string} */
+            contactWindow?: "MORNING" | "AFTERNOON" | "EVENING" | "ANYTIME";
+            dietary?: string;
+            /** @enum {string} */
+            occasion?: "BIRTHDAY" | "ANNIVERSARY" | "ENGAGEMENT" | "WEDDING" | "GRADUATION" | "PROMOTION" | "BUSINESS" | "OTHER";
+            phone?: string;
+            preferredDates?: string[];
+        };
         SetMemberRequest: {
             attributes?: {
                 [key: string]: unknown;
@@ -601,6 +859,13 @@ export interface components {
         };
         SetOfferPriceRequest: {
             amount: number;
+        };
+        SetRedemptionFeedbackRequest: {
+            comment?: string;
+            rating: number;
+        };
+        StartPhoneVerificationResponse: {
+            sent: boolean;
         };
         TimeseriesBucket: {
             endTime: string;
@@ -1441,6 +1706,319 @@ export interface operations {
             };
         };
     };
+    createInterest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional client-generated key (<=255 chars). A retried POST carrying the same key replays the original response instead of acting twice; reusing a key with a different body returns 409. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInterestRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 201 */
+            201: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateInterestResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getInterest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateInterestResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setInterestIntake: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetInterestIntakeRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateInterestResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    confirmPhoneVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmPhoneVerificationRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmPhoneVerificationResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    startPhoneVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StartPhoneVerificationResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listMembers: {
         parameters: {
             query?: {
@@ -2159,6 +2737,255 @@ export interface operations {
             };
             /** @description The resource does not exist or is not visible to this caller. */
             404: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setRedemptionFeedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRedemptionFeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Redemption"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTerms: {
+        parameters: {
+            query?: {
+                externalUserID?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetTermsResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    acceptTerms: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional client-generated key (<=255 chars). A retried POST carrying the same key replays the original response instead of acting twice; reusing a key with a different body returns 409. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptTermsRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetTermsResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getTermsContent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetTermsContentResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
                 headers: {
                     /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
                     "X-Request-Id"?: string;

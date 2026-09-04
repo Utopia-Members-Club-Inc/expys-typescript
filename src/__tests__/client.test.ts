@@ -105,6 +105,8 @@ describe("client::redemptions", () => {
       conversationId: "r1",
       createdAt: "2026-01-01T00:00:00Z",
       endAt: null,
+      /// Present as null until the member scores the experience, never absent.
+      feedback: null,
       id: "r1",
       offer: "off_1",
       startAt: null,
@@ -267,7 +269,15 @@ describe("client::conversations", () => {
     const page = {
       nextCursor: null,
       messages: [
-        { authorID: "u1", body: "hi", createdAt: "t", id: "m1", type: "text" },
+        {
+          /// Always present, empty for a text message, so a client maps without a guard.
+          attachments: [],
+          authorID: "u1",
+          body: "hi",
+          createdAt: "t",
+          id: "m1",
+          type: "text",
+        },
       ],
     };
     const { calls, client } = clientWith(page);
