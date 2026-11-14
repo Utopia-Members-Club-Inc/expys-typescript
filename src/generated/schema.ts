@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/v1/analytics/lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read activity lift after an experience */
+        get: operations["getAnalyticsLift"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/analytics/offers": {
         parameters: {
             query?: never;
@@ -13,6 +30,23 @@ export interface paths {
         };
         /** Read per-offer analytics */
         get: operations["getAnalyticsOffers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/analytics/segments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read VIP segments by signal */
+        get: operations["getAnalyticsSegments"];
         put?: never;
         post?: never;
         delete?: never;
@@ -276,6 +310,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/members/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upsert up to 1000 VIP members in one call, with a per-row report */
+        post: operations["importMembers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/members/{externalUserID}": {
         parameters: {
             query?: never;
@@ -283,13 +334,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Read a VIP member's tier, profile, wallet, and redemption counts */
+        /** Read a VIP member's tier, profile, signals, wallet, and redemption counts */
         get: operations["getMember"];
         /** Upsert a VIP member's tier and profile */
         put: operations["setMember"];
         post?: never;
         /** Remove (offboard) a VIP member */
         delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/members/{externalUserID}/signals/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List a VIP member's signal history, newest-first, cursor-paged */
+        get: operations["listMemberSignalHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -639,8 +707,15 @@ export interface components {
             rating: number;
             submittedAt: string;
         } | null;
+        GetAnalyticsLiftResponse: {
+            groups: components["schemas"]["SignalLiftGroup"][];
+        };
         GetAnalyticsOffersResponse: {
             offers: components["schemas"]["OfferAnalytics"][];
+        };
+        GetAnalyticsSegmentsResponse: {
+            groupBy: ("valueBand" | "activityBand" | "tenureBand" | "interests" | "homeRegion" | "birthMonth" | "ageBand" | "suppressed" | "vipStatus")[];
+            segments: components["schemas"]["SignalSegment"][];
         };
         GetAnalyticsSummaryResponse: {
             completionRate: number;
@@ -675,6 +750,9 @@ export interface components {
         GetTermsResponse: {
             documents: components["schemas"]["LegalDocument"][];
         };
+        ImportMembersRequest: {
+            rows: components["schemas"]["MemberImportRow"][];
+        };
         Inclusions: {
             group: string;
             name: string;
@@ -704,6 +782,10 @@ export interface components {
         ListConversationsResponse: {
             conversations: components["schemas"]["Conversation"][];
         };
+        ListMemberSignalHistoryResponse: {
+            nextCursor: string | null;
+            snapshots: components["schemas"]["MemberSignalSnapshot"][];
+        };
         ListMembersResponse: {
             members: components["schemas"]["MemberSummary"][];
             nextCursor: string | null;
@@ -732,6 +814,66 @@ export interface components {
             tier: string;
             wallet: components["schemas"]["Wallet"];
         };
+        MemberImportRejection: {
+            /** @enum {string} */
+            code: "attributes_contains_identifier" | "attributes_sensitive_key" | "attributes_too_large" | "duplicate_row" | "invalid_value" | "signal_not_enabled" | "unknown_signal";
+            externalUserID: string;
+            field: string;
+            row: number;
+        };
+        MemberImportReport: {
+            accepted: number;
+            rejected: components["schemas"]["MemberImportRejection"][];
+        };
+        MemberImportRow: {
+            /** Format: date-time */
+            asOf?: string;
+            attributes?: {
+                [key: string]: unknown;
+            };
+            externalUserID: string;
+            signals?: components["schemas"]["MemberSignalsInput"];
+            tier?: string;
+        };
+        MemberSignalSnapshot: {
+            /** @enum {string} */
+            environment: "LIVE" | "SANDBOX";
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            receivedAt: string;
+            signals: components["schemas"]["MemberSignals"];
+            /** @enum {string} */
+            source: "API" | "BATCH" | "PORTAL_CSV";
+        };
+        MemberSignals: {
+            /** @enum {string} */
+            activityBand?: "NONE" | "LOW" | "MEDIUM" | "HIGH";
+            /** @enum {string} */
+            ageBand?: "UNDER_25" | "AGE_25_34" | "AGE_35_44" | "AGE_45_54" | "AGE_55_64" | "AGE_65_PLUS";
+            birthMonth?: number;
+            homeRegion?: string;
+            interests?: ("NBA" | "NFL" | "F1" | "GOLF" | "TENNIS" | "MUSIC" | "FINE_DINING" | "TRAVEL" | "FASHION" | "WELLNESS")[];
+            suppressed?: boolean;
+            /** @enum {string} */
+            tenureBand?: "UNDER_3M" | "M3_TO_12" | "Y1_TO_3" | "OVER_3Y";
+            /** @enum {string} */
+            valueBand?: "TOP_1" | "TOP_5" | "TOP_10" | "TOP_25" | "OTHER";
+        } | null;
+        MemberSignalsInput: {
+            /** @enum {string|null} */
+            activityBand?: "NONE" | "LOW" | "MEDIUM" | "HIGH" | null;
+            /** @enum {string|null} */
+            ageBand?: "UNDER_25" | "AGE_25_34" | "AGE_35_44" | "AGE_45_54" | "AGE_55_64" | "AGE_65_PLUS" | null;
+            birthMonth?: number | null;
+            homeRegion?: string | null;
+            interests?: ("NBA" | "NFL" | "F1" | "GOLF" | "TENNIS" | "MUSIC" | "FINE_DINING" | "TRAVEL" | "FASHION" | "WELLNESS")[] | null;
+            suppressed?: boolean | null;
+            /** @enum {string|null} */
+            tenureBand?: "UNDER_3M" | "M3_TO_12" | "Y1_TO_3" | "OVER_3Y" | null;
+            /** @enum {string|null} */
+            valueBand?: "TOP_1" | "TOP_5" | "TOP_10" | "TOP_25" | "OTHER" | null;
+        };
         MemberSummary: {
             attributes: {
                 [key: string]: unknown;
@@ -739,7 +881,14 @@ export interface components {
             displayName: string | null;
             externalUserID: string;
             redemptionCounts: components["schemas"]["RedemptionCounts"];
+            signals: components["schemas"]["MemberSignals"];
+            /** Format: date-time */
+            signalsUpdatedAt: string | null;
             tier: string;
+            /** @enum {string} */
+            vipStatus: "UNKNOWN" | "LAPSED" | "REACTIVATED" | "COOLING" | "NEW" | "ACTIVE";
+            /** Format: date-time */
+            vipStatusAt: string | null;
             wallet: components["schemas"]["Wallet"];
         };
         Message: {
@@ -751,11 +900,13 @@ export interface components {
             type: string;
         };
         Offer: {
+            addOns: string[];
             availability: components["schemas"]["Availability"];
             description: string;
             disclaimer: string | null;
             display: components["schemas"]["Display"];
             endAt: string | null;
+            exclusions: string[];
             expiresAt: string | null;
             id: string;
             images: string[];
@@ -843,10 +994,13 @@ export interface components {
             preferredDates?: string[];
         };
         SetMemberRequest: {
+            /** Format: date-time */
+            asOf?: string;
             attributes?: {
                 [key: string]: unknown;
             };
             displayName?: string;
+            signals?: components["schemas"]["MemberSignalsInput"];
             tier?: string;
         };
         SetMemberResponse: {
@@ -855,6 +1009,7 @@ export interface components {
             } | null;
             displayName: string | null;
             externalUserID: string;
+            signals: components["schemas"]["MemberSignals"];
             tier: string;
         };
         SetOfferPriceRequest: {
@@ -863,6 +1018,51 @@ export interface components {
         SetRedemptionFeedbackRequest: {
             comment?: string;
             rating: number;
+        };
+        SignalLiftCohort: {
+            fell: number | null;
+            held: number | null;
+            members: number | null;
+            rose: number | null;
+            suppressed: boolean;
+        };
+        SignalLiftGroup: {
+            booked: components["schemas"]["SignalLiftCohort"];
+            notBooked: components["schemas"]["SignalLiftCohort"];
+            /** @enum {string|null} */
+            valueBand: "TOP_1" | "TOP_5" | "TOP_10" | "TOP_25" | "OTHER" | null;
+            /** @enum {string} */
+            vipStatus: "UNKNOWN" | "LAPSED" | "REACTIVATED" | "COOLING" | "NEW" | "ACTIVE";
+        };
+        SignalSegment: {
+            bookings: number | null;
+            key: components["schemas"]["SignalSegmentKey"];
+            members: number | null;
+            membersWhoBooked: number | null;
+            suppressed: boolean;
+            topCategories: components["schemas"]["SignalSegmentCategory"][];
+        };
+        SignalSegmentCategory: {
+            members: number;
+            name: string;
+            slug: string;
+        };
+        SignalSegmentKey: {
+            /** @enum {string|null} */
+            activityBand?: "NONE" | "LOW" | "MEDIUM" | "HIGH" | null;
+            /** @enum {string|null} */
+            ageBand?: "UNDER_25" | "AGE_25_34" | "AGE_35_44" | "AGE_45_54" | "AGE_55_64" | "AGE_65_PLUS" | null;
+            birthMonth?: number | null;
+            homeRegion?: string | null;
+            /** @enum {string|null} */
+            interests?: "NBA" | "NFL" | "F1" | "GOLF" | "TENNIS" | "MUSIC" | "FINE_DINING" | "TRAVEL" | "FASHION" | "WELLNESS" | null;
+            suppressed?: boolean | null;
+            /** @enum {string|null} */
+            tenureBand?: "UNDER_3M" | "M3_TO_12" | "Y1_TO_3" | "OVER_3Y" | null;
+            /** @enum {string|null} */
+            valueBand?: "TOP_1" | "TOP_5" | "TOP_10" | "TOP_25" | "OTHER" | null;
+            /** @enum {string} */
+            vipStatus?: "UNKNOWN" | "LAPSED" | "REACTIVATED" | "COOLING" | "NEW" | "ACTIVE";
         };
         StartPhoneVerificationResponse: {
             sent: boolean;
@@ -945,6 +1145,67 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAnalyticsLift: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetAnalyticsLiftResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getAnalyticsOffers: {
         parameters: {
             query?: never;
@@ -963,6 +1224,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetAnalyticsOffersResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAnalyticsSegments: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                groupBy: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetAnalyticsSegmentsResponse"];
                 };
             };
             /** @description Authentication is missing or invalid. */
@@ -2022,9 +2345,12 @@ export interface operations {
     listMembers: {
         parameters: {
             query?: {
+                activityBand?: "NONE" | "LOW" | "MEDIUM" | "HIGH";
                 cursor?: string;
                 limit?: number;
                 tier?: string;
+                valueBand?: "TOP_1" | "TOP_5" | "TOP_10" | "TOP_25" | "OTHER";
+                vipStatus?: "UNKNOWN" | "LAPSED" | "REACTIVATED" | "COOLING" | "NEW" | "ACTIVE";
             };
             header?: never;
             path?: never;
@@ -2054,6 +2380,110 @@ export interface operations {
             };
             /** @description Authenticated, but not permitted to access this resource. */
             403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    importMembers: {
+        parameters: {
+            query?: {
+                /** @description When true, check every row and return the report without writing anything. */
+                dryRun?: boolean;
+            };
+            header: {
+                /** @description Required client-generated key (<=255 chars). A retried batch carrying the same key replays the original report instead of importing twice; reusing a key with a different body returns 409. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportMembersRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberImportReport"];
+                };
+            };
+            /** @description The request is missing a required header (e.g. Idempotency-Key). */
+            400: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Conflicts with existing state (a reused idempotency key, or an already-booked offer). */
+            409: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request is too large (over the body size cap, or too many rows in a batch). */
+            413: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request failed validation. */
+            422: {
                 headers: {
                     /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
                     "X-Request-Id"?: string;
@@ -2227,6 +2657,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RemoveMemberResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listMemberSignalHistory: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                from?: string;
+                to?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                externalUserID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMemberSignalHistoryResponse"];
                 };
             };
             /** @description Authentication is missing or invalid. */

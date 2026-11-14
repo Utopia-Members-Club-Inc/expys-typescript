@@ -3,6 +3,13 @@ import type { components } from "./generated/schema";
 /** Body of {@link ExpysClient.acceptTerms}. */
 export type AcceptTermsRequest = Schemas["AcceptTermsRequest"];
 
+/**
+ * A field {@link ExpysClient.getAnalyticsSegments} can group VIPs by. Each field
+ * must be switched on for your org; `vipStatus` also needs `activityBand`.
+ */
+export type AnalyticsSegmentField =
+  GetAnalyticsSegmentsResponse["groupBy"][number];
+
 /** One file on a message: a ticket, an itinerary, a photo. */
 export type Attachment = Schemas["Attachments"];
 
@@ -110,6 +117,21 @@ export type DeleteWebhookResponse = Schemas["DeleteWebhookResponse"];
 export type Feedback = Schemas["Feedback"];
 
 /**
+ * The result of {@link ExpysClient.getAnalyticsLift}: per `valueBand` +
+ * `vipStatus` group, how the activity of VIPs who booked in the period moved
+ * against similar VIPs who did not. Association, not cause. Server-only.
+ *
+ * @example
+ * ```ts
+ * const { groups }: GetAnalyticsLiftResponse = await expys.getAnalyticsLift({
+ *   from: "2026-10-01T00:00:00Z",
+ *   to: "2026-11-01T00:00:00Z",
+ * });
+ * ```
+ */
+export type GetAnalyticsLiftResponse = Schemas["GetAnalyticsLiftResponse"];
+
+/**
  * The result of {@link ExpysClient.analyticsOffers}: per-offer analytics rollups.
  * Server-only.
  *
@@ -119,6 +141,24 @@ export type Feedback = Schemas["Feedback"];
  * ```
  */
 export type GetAnalyticsOffersResponse = Schemas["GetAnalyticsOffersResponse"];
+
+/**
+ * The result of {@link ExpysClient.getAnalyticsSegments}: the `groupBy` fields
+ * echoed back and one {@link SignalSegment} per combination of their values.
+ * Server-only.
+ *
+ * @example
+ * ```ts
+ * const { segments }: GetAnalyticsSegmentsResponse =
+ *   await expys.getAnalyticsSegments({
+ *     from: "2026-10-01T00:00:00Z",
+ *     to: "2026-11-01T00:00:00Z",
+ *     groupBy: ["valueBand", "vipStatus"],
+ *   });
+ * ```
+ */
+export type GetAnalyticsSegmentsResponse =
+  Schemas["GetAnalyticsSegmentsResponse"];
 
 /**
  * The result of {@link ExpysClient.analyticsSummary}: org-wide rollups (members,
@@ -175,6 +215,18 @@ export type GetTermsContentResponse = Schemas["GetTermsContentResponse"];
 export type GetTermsResponse = Schemas["GetTermsResponse"];
 
 /**
+ * The body for {@link ExpysClient.importMembers}: up to 1,000 {@link MemberImportRow}s.
+ *
+ * @example
+ * ```ts
+ * const body: ImportMembersRequest = {
+ *   rows: [{ externalUserID: "user_42", tier: "gold" }],
+ * };
+ * ```
+ */
+export type ImportMembersRequest = Schemas["ImportMembersRequest"];
+
+/**
  * The logistics a member supplied. The dietary, allergy and accessibility answers are
  * NOT here: they go to the concierge team and are never stored, so only
  * `sensitiveDetailsSentAt` records that they were sent.
@@ -201,6 +253,20 @@ export type LegalDocument = Schemas["LegalDocument"];
  * ```
  */
 export type ListConversationsResponse = Schemas["ListConversationsResponse"];
+
+/**
+ * A page of a member's signal history: {@link MemberSignalSnapshot}s, newest
+ * first, plus the `nextCursor` to fetch the following page (`null` when the list
+ * is exhausted).
+ *
+ * @example
+ * ```ts
+ * const page: ListMemberSignalHistoryResponse =
+ *   await expys.getSignalHistory("user_42");
+ * ```
+ */
+export type ListMemberSignalHistoryResponse =
+  Schemas["ListMemberSignalHistoryResponse"];
 
 /**
  * A page of {@link MemberSummary} records plus the `nextCursor` to fetch the
@@ -260,6 +326,42 @@ export type ListTransactionsResponse = Schemas["ListTransactionsResponse"];
  * ```
  */
 export type MemberEligibility = Schemas["MemberEligibility"];
+
+/**
+ * One refused row of {@link ExpysClient.importMembers}: its 1-based `row`, the
+ * `externalUserID`, the offending `field` and a stable `code`.
+ */
+export type MemberImportRejection = Schemas["MemberImportRejection"];
+
+/**
+ * The result of {@link ExpysClient.importMembers}: how many rows were `accepted`
+ * (and, unless a dry run, written) and the `rejected` rows.
+ */
+export type MemberImportReport = Schemas["MemberImportReport"];
+
+/**
+ * One member in {@link ExpysClient.importMembers}: `externalUserID` plus any of
+ * `tier`, `signals`, `attributes` and `asOf`, as on {@link ExpysClient.setMember}.
+ */
+export type MemberImportRow = Schemas["MemberImportRow"];
+
+/**
+ * A member's current VIP signals as reads return them: only the fields that hold
+ * a value. `null` when none have ever been set.
+ */
+export type MemberSignals = Schemas["MemberSignals"];
+
+/**
+ * VIP signals as a write sends them: every field optional (omitted = keep) and
+ * nullable (`null` = clear).
+ */
+export type MemberSignalsInput = Schemas["MemberSignalsInput"];
+
+/**
+ * One change to a member's signals: the full set after the change, when it was
+ * true (`observedAt`) and received, and how it arrived (`source`).
+ */
+export type MemberSignalSnapshot = Schemas["MemberSignalSnapshot"];
 
 /**
  * The result of {@link ExpysClient.getMember}: the member's profile, tier,
@@ -370,9 +472,46 @@ export type SetMemberRequest = Schemas["SetMemberRequest"];
  */
 export type SetMemberResponse = Schemas["SetMemberResponse"];
 
+/**
+ * The body for {@link ExpysClient.setOfferPrice}: the `amount` to display, in the
+ * org's own currency. Server-only.
+ *
+ * @example
+ * ```ts
+ * const body: SetOfferPriceRequest = { amount: 39.5 };
+ * ```
+ */
+export type SetOfferPriceRequest = Schemas["SetOfferPriceRequest"];
+
 /** Body of {@link ExpysClient.setRedemptionFeedback}. */
 export type SetRedemptionFeedbackRequest =
   Schemas["SetRedemptionFeedbackRequest"];
+
+/**
+ * One side of a {@link SignalLiftGroup}: the share of VIPs whose activity rose,
+ * held or fell. When fewer than 5 VIPs are in the cohort, `suppressed` is true
+ * and every number is `null`.
+ */
+export type SignalLiftCohort = Schemas["SignalLiftCohort"];
+
+/**
+ * One `valueBand` + `vipStatus` group of {@link GetAnalyticsLiftResponse}: the
+ * VIPs who `booked` in the period against those who did not.
+ */
+export type SignalLiftGroup = Schemas["SignalLiftGroup"];
+
+/**
+ * One cell of {@link GetAnalyticsSegmentsResponse}: its `key` (one value per
+ * `groupBy` field), member and booking counts, and top categories. When fewer
+ * than 5 VIPs are in the cell, `suppressed` is true and the counts are `null`.
+ */
+export type SignalSegment = Schemas["SignalSegment"];
+
+/** A category the VIPs in a {@link SignalSegment} booked most. */
+export type SignalSegmentCategory = Schemas["SignalSegmentCategory"];
+
+/** The `groupBy` values that identify a {@link SignalSegment}. */
+export type SignalSegmentKey = Schemas["SignalSegmentKey"];
 
 /** Response of {@link ExpysClient.startPhoneVerification}. */
 export type StartPhoneVerificationResponse =
@@ -412,6 +551,23 @@ export type TokenGrant = Schemas["TokenGrant"];
  * ```
  */
 export type Transaction = Schemas["Transaction"];
+
+/**
+ * The body for {@link ExpysClient.updateConfiguration}: any of `currencyName`,
+ * `currencySymbol`, `currencyUnitsPerUSD`, and `confirmReprice`. Server-only.
+ *
+ * @example
+ * ```ts
+ * const body: UpdateConfigurationRequest = { currencyUnitsPerUSD: 1 };
+ * ```
+ */
+export type UpdateConfigurationRequest = Schemas["UpdateConfigurationRequest"];
+
+/**
+ * The org's display currency after {@link ExpysClient.updateConfiguration}.
+ */
+export type UpdateConfigurationResponse =
+  Schemas["UpdateConfigurationResponse"];
 
 /**
  * A member's wallet: `balance`, `amountReceived`, `amountSpent`, and the

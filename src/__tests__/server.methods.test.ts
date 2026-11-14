@@ -1,5 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
+import type {
+  GetAnalyticsLiftResponse,
+  GetAnalyticsSegmentsResponse,
+  ListMemberSignalHistoryResponse,
+  MemberImportReport,
+} from "../types";
+
 import { initialize } from "../client";
 import { NotConfiguredError } from "../errors";
 
@@ -97,6 +104,7 @@ describe("server::setMember", () => {
       attributes: null,
       displayName: "Ada",
       externalUserID: "u 1",
+      signals: null,
       tier: "gold",
     };
     const { calls, client } = serverClientWith(member);
@@ -114,6 +122,111 @@ describe("server::setMember", () => {
     );
     expect(headerOf(calls[0].init, "Idempotency-Key")).toBeUndefined();
     expect(headerOf(calls[0].init, "Content-Type")).toBe("application/json");
+  });
+});
+
+describe("server::importMembers", () => {
+  it("posts rows to the batch route with an idempotency key and parses the report", async () => {
+    const report: MemberImportReport = {
+      accepted: 1,
+      rejected: [
+        {
+          code: "signal_not_enabled",
+          externalUserID: "u2",
+          field: "valueBand",
+          row: 2,
+        },
+      ],
+    };
+    const { calls, client } = serverClientWith(report);
+    const rows = [
+      { externalUserID: "u1", signals: { activityBand: "HIGH" as const } },
+      { externalUserID: "u2", signals: { valueBand: "TOP_1" as const } },
+    ];
+
+    const result = await client.importMembers({ rows });
+
+    expect(result).toEqual(report);
+    expect(calls[0].init.method).toBe("POST");
+    expect(calls[0].url).toBe("https://api.test/v1/members/batch");
+    expect(calls[0].init.body).toBe(JSON.stringify({ rows }));
+    expect(headerOf(calls[0].init, "Idempotency-Key")).toMatch(
+      /^[0-9a-f-]{36}$/i,
+    );
+  });
+
+  it("sends dryRun and a caller-supplied idempotency key", async () => {
+    const { calls, client } = serverClientWith({ accepted: 0, rejected: [] });
+
+    await client.importMembers(
+      { rows: [{ externalUserID: "u1" }] },
+      { dryRun: true, idempotencyKey: "batch-1" },
+    );
+
+    expect(calls[0].url).toBe("https://api.test/v1/members/batch?dryRun=true");
+    expect(headerOf(calls[0].init, "Idempotency-Key")).toBe("batch-1");
+  });
+});
+
+describe("server::getSignalHistory", () => {
+  it("GETs a page of the member's signal history and follows the cursor", async () => {
+    const page: ListMemberSignalHistoryResponse = {
+      nextCursor: "c2",
+      snapshots: [
+        {
+          environment: "LIVE",
+          observedAt: "2026-11-01T00:00:00.000Z",
+          receivedAt: "2026-11-01T00:00:01.000Z",
+          signals: { activityBand: "HIGH" },
+          source: "BATCH",
+        },
+      ],
+    };
+    const { calls, client } = serverClientWith(page);
+
+    const first = await client.getSignalHistory("u 1", { limit: 1 });
+    await client.getSignalHistory("u 1", {
+      cursor: first.nextCursor ?? undefined,
+      from: "2026-01-01T00:00:00Z",
+      limit: 1,
+      to: "2026-12-31T00:00:00Z",
+    });
+
+    expect(first).toEqual(page);
+    expect(calls[0].init.method).toBe("GET");
+    expect(calls[0].url).toBe(
+      "https://api.test/v1/members/u%201/signals/history?limit=1",
+    );
+    const second = new URL(calls[1].url);
+    expect(second.pathname).toBe("/v1/members/u%201/signals/history");
+    expect(Object.fromEntries(second.searchParams)).toEqual({
+      cursor: "c2",
+      from: "2026-01-01T00:00:00Z",
+      limit: "1",
+      to: "2026-12-31T00:00:00Z",
+    });
+  });
+});
+
+describe("server::listMembers signal filters", () => {
+  it("passes the valueBand, activityBand and vipStatus filters", async () => {
+    const { calls, client } = serverClientWith({
+      members: [],
+      nextCursor: null,
+    });
+
+    await client.listMembers({
+      activityBand: "LOW",
+      valueBand: "TOP_1",
+      vipStatus: "COOLING",
+    });
+
+    const url = new URL(calls[0].url);
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      activityBand: "LOW",
+      valueBand: "TOP_1",
+      vipStatus: "COOLING",
+    });
   });
 });
 
@@ -245,6 +358,99 @@ describe("server::analytics", () => {
   });
 });
 
+describe("server::getAnalyticsSegments", () => {
+  it("GETs segments for the period and groupBy fields and keeps a suppressed cell as nulls", async () => {
+    const response: GetAnalyticsSegmentsResponse = {
+      groupBy: ["valueBand", "vipStatus"],
+      segments: [
+        {
+          bookings: 9,
+          key: { valueBand: "TOP_1", vipStatus: "ACTIVE" },
+          members: 12,
+          membersWhoBooked: 7,
+          suppressed: false,
+          topCategories: [{ members: 5, name: "NBA", slug: "nba" }],
+        },
+        {
+          bookings: null,
+          key: { valueBand: "TOP_5", vipStatus: "LAPSED" },
+          members: null,
+          membersWhoBooked: null,
+          suppressed: true,
+          topCategories: [],
+        },
+      ],
+    };
+    const { calls, client } = serverClientWith(response);
+
+    const result = await client.getAnalyticsSegments({
+      from: "2026-10-01T00:00:00Z",
+      groupBy: ["valueBand", "vipStatus"],
+      to: "2026-11-01T00:00:00Z",
+    });
+
+    expect(result).toEqual(response);
+    expect(result.segments[1].suppressed).toBe(true);
+    expect(result.segments[1].members).toBeNull();
+    expect(calls[0].init.method).toBe("GET");
+    const url = new URL(calls[0].url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      "https://api.test/v1/analytics/segments",
+    );
+    expect(url.searchParams.get("from")).toBe("2026-10-01T00:00:00Z");
+    expect(url.searchParams.get("to")).toBe("2026-11-01T00:00:00Z");
+    expect(url.searchParams.get("groupBy")).toBe("valueBand,vipStatus");
+    expect(headerOf(calls[0].init, "Authorization")).toBe(
+      `Bearer ${MACHINE_TOKEN}`,
+    );
+  });
+});
+
+describe("server::getAnalyticsLift", () => {
+  it("GETs lift for the period and keeps a suppressed cohort as nulls", async () => {
+    const response: GetAnalyticsLiftResponse = {
+      groups: [
+        {
+          valueBand: "TOP_1",
+          vipStatus: "ACTIVE",
+          booked: {
+            fell: 0.1,
+            held: 0.5,
+            members: 20,
+            rose: 0.4,
+            suppressed: false,
+          },
+          notBooked: {
+            fell: null,
+            held: null,
+            members: null,
+            rose: null,
+            suppressed: true,
+          },
+        },
+      ],
+    };
+    const { calls, client } = serverClientWith(response);
+
+    const result = await client.getAnalyticsLift({
+      from: "2026-10-01T00:00:00Z",
+      to: "2026-11-01T00:00:00Z",
+    });
+
+    expect(result).toEqual(response);
+    expect(result.groups[0].notBooked.suppressed).toBe(true);
+    expect(result.groups[0].notBooked.members).toBeNull();
+    expect(calls[0].init.method).toBe("GET");
+    const url = new URL(calls[0].url);
+    expect(`${url.origin}${url.pathname}`).toBe(
+      "https://api.test/v1/analytics/lift",
+    );
+    expect(url.searchParams.get("from")).toBe("2026-10-01T00:00:00Z");
+    expect(url.searchParams.get("to")).toBe("2026-11-01T00:00:00Z");
+    expect([...url.searchParams.keys()].sort()).toEqual(["from", "to"]);
+  });
+});
+
 describe("server::webhooks", () => {
   it("creates a webhook (201) with an auto-generated idempotency key", async () => {
     const { calls, client } = serverClientWith({
@@ -322,6 +528,15 @@ describe("server::credential guard", () => {
       () => client.createWebhook({ events: [], url: "https://x" }),
       () => client.listWebhooks(),
       () => client.deleteWebhook("wh_1"),
+      () => client.importMembers({ rows: [] }),
+      () => client.getSignalHistory("u1"),
+      () =>
+        client.getAnalyticsSegments({
+          from: "a",
+          groupBy: ["valueBand"],
+          to: "b",
+        }),
+      () => client.getAnalyticsLift({ from: "a", to: "b" }),
     ];
 
     for (const invoke of serverCalls) {

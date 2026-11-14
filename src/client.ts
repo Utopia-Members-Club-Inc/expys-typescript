@@ -1,5 +1,6 @@
 import type {
   AcceptTermsRequest,
+  AnalyticsSegmentField,
   ConfirmPhoneVerificationRequest,
   ConfirmPhoneVerificationResponse,
   CreateInterestRequest,
@@ -9,20 +10,27 @@ import type {
   CreditWalletRequest,
   CreditWalletResponse,
   DeleteWebhookResponse,
+  GetAnalyticsLiftResponse,
   GetAnalyticsOffersResponse,
+  GetAnalyticsSegmentsResponse,
   GetAnalyticsSummaryResponse,
   GetAnalyticsTimeseriesResponse,
   GetBalanceResponse,
   GetTermsContentResponse,
   GetTermsResponse,
+  ImportMembersRequest,
   ListConversationsResponse,
+  ListMemberSignalHistoryResponse,
   ListMembersResponse,
   ListMessagesResponse,
   ListRedemptionsResponse,
   ListTransactionsResponse,
   MemberEligibility,
+  MemberImportReport,
+  MemberSignals,
   MemberSummary,
   Message,
+  Offer,
   OfferList,
   Redemption,
   RemoveMemberResponse,
@@ -30,10 +38,13 @@ import type {
   SetInterestIntakeRequest,
   SetMemberRequest,
   SetMemberResponse,
+  SetOfferPriceRequest,
   SetRedemptionFeedbackRequest,
   StartPhoneVerificationResponse,
   TokenExchangeRequest,
   TokenGrant,
+  UpdateConfigurationRequest,
+  UpdateConfigurationResponse,
   Wallet,
   WebhookEndpointList,
   WebhookEndpointWithSecret,
@@ -270,6 +281,24 @@ export interface ExpysClient {
     options?: WriteOptions,
   ): Promise<CreditWalletResponse>;
   /**
+   * Clear the org's authored display price for one experience, reverting it to the
+   * figure derived from the dollar price and your currency ratio. Idempotent by HTTP
+   * semantics (DELETE), so no idempotency key is sent. Server-only: requires an
+   * Org-API-Key machine credential with `CONFIG_WRITE`; calling it with a member
+   * token throws a {@link NotConfiguredError} before any request.
+   *
+   * @param id - The offer id.
+   * @returns The {@link Offer} as your members now see it (`display.source` is
+   *   `DERIVED`).
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link NotFoundError} when the offer is not visible to your org.
+   * @example
+   * ```ts
+   * const offer = await expys.deleteOfferPrice("off_123");
+   * ```
+   */
+  deleteOfferPrice(id: string): Promise<Offer>;
+  /**
    * Delete a webhook endpoint by its id. Server-only: requires an Org-API-Key
    * machine credential; calling it with a member token throws a
    * {@link NotConfiguredError} before any request.
@@ -317,6 +346,61 @@ export interface ExpysClient {
     options?: WriteOptions,
   ): Promise<TokenGrant>;
   /**
+   * How the activity of VIPs who booked an experience in the period moved, against
+   * similar VIPs (same `valueBand` + `vipStatus` at the period start) who did not.
+   * Association, not cause. Reads live data only, so a sandbox key gets no groups.
+   * Server-only: requires an Org-API-Key machine credential with `ANALYTICS_READ`;
+   * calling it with a member token throws a {@link NotConfiguredError} before any
+   * request.
+   *
+   * A cohort with fewer than 5 VIPs comes back with `suppressed: true` and every
+   * number `null`.
+   *
+   * @param params - The required period: `from` (inclusive) and `to` (exclusive),
+   *   ISO-8601 date-time strings.
+   * @returns A {@link GetAnalyticsLiftResponse} of groups.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link ValidationError} when `from` is after `to`.
+   * @example
+   * ```ts
+   * const { groups } = await expys.getAnalyticsLift({
+   *   from: "2026-10-01T00:00:00Z",
+   *   to: "2026-11-01T00:00:00Z",
+   * });
+   * ```
+   */
+  getAnalyticsLift(
+    params: GetAnalyticsLiftParams,
+  ): Promise<GetAnalyticsLiftResponse>;
+  /**
+   * VIP counts, bookings and top categories per segment, grouping VIPs by one or
+   * two signal fields (`vipStatus` counts as a field). Reads live data only, so a
+   * sandbox key gets no segments. Server-only: requires an Org-API-Key machine
+   * credential with `ANALYTICS_READ`; calling it with a member token throws a
+   * {@link NotConfiguredError} before any request.
+   *
+   * A segment with fewer than 5 VIPs comes back with `suppressed: true` and its
+   * counts `null`.
+   *
+   * @param params - The required period, `from` (inclusive) and `to` (exclusive)
+   *   as ISO-8601 date-time strings, and the `groupBy` fields.
+   * @returns A {@link GetAnalyticsSegmentsResponse} of segments.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link ValidationError} when a `groupBy` field is unknown or not
+   *   switched on for your org, or `from` is after `to`.
+   * @example
+   * ```ts
+   * const { segments } = await expys.getAnalyticsSegments({
+   *   from: "2026-10-01T00:00:00Z",
+   *   to: "2026-11-01T00:00:00Z",
+   *   groupBy: ["valueBand", "vipStatus"],
+   * });
+   * ```
+   */
+  getAnalyticsSegments(
+    params: GetAnalyticsSegmentsParams,
+  ): Promise<GetAnalyticsSegmentsResponse>;
+  /**
    * Read an interest and its intake.
    *
    * @param id - The interest id.
@@ -338,6 +422,20 @@ export interface ExpysClient {
    */
   getMember(externalUserID: string): Promise<MemberSummary>;
   /**
+   * Read one offer by its id: the same shape {@link ExpysClient.listOffers} returns,
+   * for a deep link. Works with a member token or a machine credential.
+   *
+   * @param id - The offer id.
+   * @returns The {@link Offer}.
+   * @throws A {@link NotFoundError} when no offer with that id is visible to your
+   *   org (another tenant's id gets the same 404).
+   * @example
+   * ```ts
+   * const offer = await expys.getOffer("off_123");
+   * ```
+   */
+  getOffer(id: string): Promise<Offer>;
+  /**
    * Read a redemption by its id.
    *
    * @param id - The redemption id.
@@ -349,6 +447,28 @@ export interface ExpysClient {
    * ```
    */
   getRedemption(id: string): Promise<Redemption>;
+  /**
+   * Read a member's VIP signal history: one snapshot of their full signal set per
+   * change, newest first by `observedAt`. Cursor-paginate with `params.cursor`
+   * until the response's `nextCursor` is null. Server-only: requires an
+   * Org-API-Key machine credential with `MEMBERS_READ`; calling it with a member
+   * token throws a {@link NotConfiguredError} before any request.
+   *
+   * @param externalUserID - The member's external user id.
+   * @param params - Optional `from` / `to` (ISO 8601, inclusive), `limit` (1-100)
+   *   and pagination `cursor`.
+   * @returns A {@link ListMemberSignalHistoryResponse} plus the next `nextCursor`.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link NotFoundError} when the member is not in your org.
+   * @example
+   * ```ts
+   * const { snapshots } = await expys.getSignalHistory("user_42", { limit: 50 });
+   * ```
+   */
+  getSignalHistory(
+    externalUserID: string,
+    params?: GetSignalHistoryParams,
+  ): Promise<ListMemberSignalHistoryResponse>;
   /**
    * List the legal documents this member has and has not accepted.
    *
@@ -376,6 +496,36 @@ export interface ExpysClient {
    * @returns `contentHTML` (a complete HTML fragment to render) and `renderedHash`.
    */
   getTermsContent(version: string): Promise<GetTermsContentResponse>;
+  /**
+   * Upsert up to 1,000 members in one call: each row takes the fields of
+   * {@link ExpysClient.setMember} (`tier`, `signals`, `attributes`, `asOf`). A bad
+   * row is skipped and listed in the report with its 1-based row number, field and
+   * code; every other row is written. Sends an `Idempotency-Key` (the route
+   * requires one) so a retry replays the original report; override it via
+   * `params.idempotencyKey`. Pass `params.dryRun` to check every row without
+   * writing. Server-only: requires an Org-API-Key machine credential with
+   * `MEMBERS_WRITE`; calling it with a member token throws a
+   * {@link NotConfiguredError} before any request.
+   *
+   * @param input - The `rows` to import.
+   * @param params - Optional `dryRun` and a custom `idempotencyKey`.
+   * @returns A {@link MemberImportReport}: `accepted` and the `rejected` rows.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link ValidationError} when the body itself is malformed (a row
+   *   without `externalUserID`), or an {@link ApiError} with status 413 and
+   *   `code === "batch_too_large"` over 1,000 rows.
+   * @example
+   * ```ts
+   * const report = await expys.importMembers({
+   *   rows: [{ externalUserID: "user_42", signals: { activityBand: "HIGH" } }],
+   * });
+   * // report.accepted, report.rejected
+   * ```
+   */
+  importMembers(
+    input: ImportMembersRequest,
+    params?: ImportMembersParams,
+  ): Promise<MemberImportReport>;
   /**
    * List the member's conversations.
    *
@@ -425,7 +575,7 @@ export interface ExpysClient {
    * Browse available offers. Cursor-paginate with `params.cursor` until the
    * response's `nextCursor` is null.
    *
-   * @param params - Optional `limit` and pagination `cursor`.
+   * @param params - Optional `available` filter, `limit` and pagination `cursor`.
    * @returns An {@link OfferList} of offers plus the next `nextCursor`.
    * @example
    * ```ts
@@ -538,6 +688,27 @@ export interface ExpysClient {
     input: SetMemberRequest,
   ): Promise<SetMemberResponse>;
   /**
+   * Set the org's own display price for one experience, in your currency. Your
+   * members see this amount instead of the derived figure; the points debited on
+   * redemption are unchanged. Idempotent by HTTP semantics (PUT), so no idempotency
+   * key is sent. Server-only: requires an Org-API-Key machine credential with
+   * `CONFIG_WRITE`; calling it with a member token throws a
+   * {@link NotConfiguredError} before any request.
+   *
+   * @param id - The offer id.
+   * @param input - The `amount` to display (0 or more; decimals allowed).
+   * @returns The {@link Offer} as your members now see it (`display.source` is
+   *   `AUTHORED`).
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link NotFoundError} when the offer is not visible to your org, or a
+   *   {@link ValidationError} when `amount` is negative.
+   * @example
+   * ```ts
+   * const offer = await expys.setOfferPrice("off_123", { amount: 39.5 });
+   * ```
+   */
+  setOfferPrice(id: string, input: SetOfferPriceRequest): Promise<Offer>;
+  /**
    * Record a member's score for a completed experience. 0-10, the NPS scale.
    *
    * @param id - The redemption id.
@@ -583,6 +754,36 @@ export interface ExpysClient {
    */
   streamMessages(id: string): AsyncIterable<Message>;
   /**
+   * Name the org's display currency and set how many units of it make a dollar.
+   * Send only the fields you are changing. Idempotent by HTTP semantics (PUT), so no
+   * idempotency key is sent. Server-only (and not callable from a browser): requires
+   * an Org-API-Key machine credential with `CONFIG_WRITE`; calling it with a member
+   * token throws a {@link NotConfiguredError} before any request.
+   *
+   * A ratio change large enough to reprice the catalogue by more than the guard
+   * factor is refused unless `confirmReprice` is true.
+   *
+   * @param input - Any of `currencyName`, `currencySymbol`, `currencyUnitsPerUSD`,
+   *   and `confirmReprice`.
+   * @returns The org's currency after the change, an
+   *   {@link UpdateConfigurationResponse}.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws An {@link ApiError} with status 400 when the input is invalid or the
+   *   reprice needs confirming, or with `code === "FIELD_NOT_WRITABLE"` when it names
+   *   a commercial term such as `creditLimit`.
+   * @example
+   * ```ts
+   * await expys.updateConfiguration({
+   *   currencyName: "Credits",
+   *   currencySymbol: "C",
+   *   currencyUnitsPerUSD: 1,
+   * });
+   * ```
+   */
+  updateConfiguration(
+    input: UpdateConfigurationRequest,
+  ): Promise<UpdateConfigurationResponse>;
+  /**
    * The member's wallet (balances).
    *
    * @returns The member's {@link Wallet}.
@@ -610,11 +811,58 @@ export interface ExpysClient {
 }
 
 /**
+ * Parameters for {@link ExpysClient.getAnalyticsLift}. Both are required.
+ */
+export interface GetAnalyticsLiftParams {
+  /** Start of the period (inclusive), an ISO-8601 date-time string. */
+  from: string;
+  /** End of the period (exclusive), an ISO-8601 date-time string. */
+  to: string;
+}
+
+/**
+ * Parameters for {@link ExpysClient.getAnalyticsSegments}. All three are required.
+ */
+export interface GetAnalyticsSegmentsParams {
+  /** Start of the period (inclusive), an ISO-8601 date-time string. */
+  from: string;
+  /**
+   * One or two fields to group VIPs by, each switched on for your org
+   * (`vipStatus` needs `activityBand`).
+   */
+  groupBy: readonly AnalyticsSegmentField[];
+  /** End of the period (exclusive), an ISO-8601 date-time string. */
+  to: string;
+}
+
+/**
+ * Parameters for {@link ExpysClient.getSignalHistory}.
+ */
+export interface GetSignalHistoryParams {
+  /** Pagination cursor from a previous response's `nextCursor`. */
+  cursor?: string;
+  /** Only snapshots observed at or after this time (ISO 8601, inclusive). */
+  from?: string;
+  /** Maximum number of snapshots to return (1-100). */
+  limit?: number;
+  /** Only snapshots observed at or before this time (ISO 8601, inclusive). */
+  to?: string;
+}
+
+/**
  * Parameters for {@link ExpysClient.getTerms}.
  */
 export interface GetTermsParams {
   /** Names the member when a machine token calls on their behalf. */
   externalUserID?: string;
+}
+
+/**
+ * Parameters for {@link ExpysClient.importMembers}.
+ */
+export interface ImportMembersParams extends WriteOptions {
+  /** Check every row and return the report without writing anything. */
+  dryRun?: boolean;
 }
 
 /**
@@ -629,12 +877,18 @@ export interface ListConversationsParams {
  * Parameters for {@link ExpysClient.listMembers}.
  */
 export interface ListMembersParams {
+  /** Return only members whose current `activityBand` signal is this value. */
+  activityBand?: NonNullable<NonNullable<MemberSignals>["activityBand"]>;
   /** Pagination cursor from a previous response's `nextCursor`. */
   cursor?: string;
   /** Maximum number of members to return (1-100). */
   limit?: number;
   /** Return only members whose effective tier matches this value exactly. */
   tier?: string;
+  /** Return only members whose current `valueBand` signal is this value. */
+  valueBand?: NonNullable<NonNullable<MemberSignals>["valueBand"]>;
+  /** Return only members with this derived VIP status. */
+  vipStatus?: MemberSummary["vipStatus"];
 }
 
 /**
@@ -653,6 +907,11 @@ export interface ListMessagesParams {
  * Parameters for {@link ExpysClient.listOffers}.
  */
 export interface ListOffersParams {
+  /**
+   * `true` leaves out sold-out offers (`availability.quantityRemaining` of 0).
+   * Omitted or `false` returns every offer, sold-out ones included.
+   */
+  available?: boolean;
   /** Pagination cursor from a previous response's `nextCursor`. */
   cursor?: string;
   /** Maximum number of offers to return. */
@@ -824,6 +1083,13 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: "/v1/wallet/credit",
       });
     },
+    deleteOfferPrice: (id) => {
+      guardServerOnly("deleteOfferPrice");
+      return http.request<Offer>({
+        method: "DELETE",
+        path: `/v1/offers/${encodeURIComponent(id)}/price`,
+      });
+    },
     deleteWebhook: (id) => {
       guardServerOnly("deleteWebhook");
       return http.request<DeleteWebhookResponse>({
@@ -846,6 +1112,26 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: "/v1/auth/exchange",
       });
     },
+    getAnalyticsLift: (params) => {
+      guardServerOnly("getAnalyticsLift");
+      return http.request<GetAnalyticsLiftResponse>({
+        method: "GET",
+        path: "/v1/analytics/lift",
+        query: { from: params.from, to: params.to },
+      });
+    },
+    getAnalyticsSegments: (params) => {
+      guardServerOnly("getAnalyticsSegments");
+      return http.request<GetAnalyticsSegmentsResponse>({
+        method: "GET",
+        path: "/v1/analytics/segments",
+        query: {
+          from: params.from,
+          groupBy: params.groupBy.join(","),
+          to: params.to,
+        },
+      });
+    },
     getInterest: (id) =>
       http.request<CreateInterestResponse>({
         method: "GET",
@@ -858,11 +1144,29 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: `/v1/members/${encodeURIComponent(externalUserID)}`,
       });
     },
+    getOffer: (id) =>
+      http.request<Offer>({
+        method: "GET",
+        path: `/v1/offers/${encodeURIComponent(id)}`,
+      }),
     getRedemption: (id) =>
       http.request<Redemption>({
         method: "GET",
         path: `/v1/redemptions/${encodeURIComponent(id)}`,
       }),
+    getSignalHistory: (externalUserID, params) => {
+      guardServerOnly("getSignalHistory");
+      return http.request<ListMemberSignalHistoryResponse>({
+        method: "GET",
+        path: `/v1/members/${encodeURIComponent(externalUserID)}/signals/history`,
+        query: {
+          cursor: params?.cursor,
+          from: params?.from,
+          limit: params?.limit,
+          to: params?.to,
+        },
+      });
+    },
     getTerms: (params) =>
       http.request<GetTermsResponse>({
         method: "GET",
@@ -874,6 +1178,16 @@ export function initialize(config: ExpysConfig): ExpysClient {
         method: "GET",
         path: `/v1/terms/${encodeURIComponent(version)}/content`,
       }),
+    importMembers: (input, params) => {
+      guardServerOnly("importMembers");
+      return http.request<MemberImportReport>({
+        body: input,
+        idempotencyKey: params?.idempotencyKey ?? generateIdempotencyKey(),
+        method: "POST",
+        path: "/v1/members/batch",
+        query: { dryRun: params?.dryRun === true ? "true" : undefined },
+      });
+    },
     listConversations: (params) =>
       http.request<ListConversationsResponse>({
         method: "GET",
@@ -886,9 +1200,12 @@ export function initialize(config: ExpysConfig): ExpysClient {
         method: "GET",
         path: "/v1/members",
         query: {
+          activityBand: params?.activityBand,
           cursor: params?.cursor,
           limit: params?.limit,
           tier: params?.tier,
+          valueBand: params?.valueBand,
+          vipStatus: params?.vipStatus,
         },
       });
     },
@@ -906,7 +1223,14 @@ export function initialize(config: ExpysConfig): ExpysClient {
       http.request<OfferList>({
         method: "GET",
         path: "/v1/offers",
-        query: { cursor: params?.cursor, limit: params?.limit },
+        query: {
+          cursor: params?.cursor,
+          limit: params?.limit,
+          available:
+            params?.available === undefined
+              ? undefined
+              : String(params.available),
+        },
       }),
     listRedemptions: (params) =>
       http.request<ListRedemptionsResponse>({
@@ -960,6 +1284,14 @@ export function initialize(config: ExpysConfig): ExpysClient {
         path: `/v1/members/${encodeURIComponent(externalUserID)}`,
       });
     },
+    setOfferPrice: (id, input) => {
+      guardServerOnly("setOfferPrice");
+      return http.request<Offer>({
+        body: input,
+        method: "PUT",
+        path: `/v1/offers/${encodeURIComponent(id)}/price`,
+      });
+    },
     setRedemptionFeedback: (id, input) =>
       http.request<Redemption>({
         body: input,
@@ -979,6 +1311,14 @@ export function initialize(config: ExpysConfig): ExpysClient {
         session,
         userAgent,
       }),
+    updateConfiguration: (input) => {
+      guardServerOnly("updateConfiguration");
+      return http.request<UpdateConfigurationResponse>({
+        body: input,
+        method: "PUT",
+        path: "/v1/configuration",
+      });
+    },
     walletTransactions: (params) =>
       http.request<ListTransactionsResponse>({
         method: "GET",

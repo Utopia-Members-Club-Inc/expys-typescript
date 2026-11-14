@@ -88,9 +88,14 @@ sandbox Org-API-Key on your backend. See [`examples/environments.ts`](./examples
 
 ## Offers
 
-| Method                                  | Endpoint         |
-| --------------------------------------- | ---------------- |
-| `expys.listOffers({ limit?, cursor? })` | `GET /v1/offers` |
+| Method                                              | Endpoint              |
+| --------------------------------------------------- | --------------------- |
+| `expys.listOffers({ available?, limit?, cursor? })` | `GET /v1/offers`      |
+| `expys.getOffer(id)`                                | `GET /v1/offers/{id}` |
+
+Pass `available: true` to leave out sold-out offers; omitted (or `false`) returns
+every offer. `getOffer` reads the same shape for a deep link and throws
+`NotFoundError` for an id your org cannot see.
 
 `listOffers` is cursor-paginated. Pass the previous response's `nextCursor` until
 it comes back `null`:
@@ -216,9 +221,17 @@ from your app. The following methods are **server-only**: they require an
 | `expys.setMember(externalUserID, input)`              | `PUT /v1/members/{externalUserID}`    |
 | `expys.getMember(externalUserID)`                     | `GET /v1/members/{externalUserID}`    |
 | `expys.removeMember(externalUserID, { retainBalance? })` | `DELETE /v1/members/{externalUserID}` |
+| `expys.importMembers({ rows }, { dryRun?, idempotencyKey? })` | `POST /v1/members/batch` |
+| `expys.getSignalHistory(externalUserID, { from?, to?, limit?, cursor? })` | `GET /v1/members/{externalUserID}/signals/history` |
 | `expys.analyticsSummary()`                            | `GET /v1/analytics/summary`       |
 | `expys.analyticsOffers()`                             | `GET /v1/analytics/offers`        |
 | `expys.analyticsTimeseries({ from, to, interval })`   | `GET /v1/analytics/timeseries`    |
+| `expys.getAnalyticsSegments({ from, to, groupBy })` | `GET /v1/analytics/segments` |
+| `expys.getAnalyticsLift({ from, to })` | `GET /v1/analytics/lift` |
+| `expys.balance()`                                     | `GET /v1/balance`                 |
+| `expys.setOfferPrice(id, { amount })`                 | `PUT /v1/offers/{id}/price`       |
+| `expys.deleteOfferPrice(id)`                          | `DELETE /v1/offers/{id}/price`    |
+| `expys.updateConfiguration(input)`                    | `PUT /v1/configuration`           |
 | `expys.createWebhook(input, { idempotencyKey? })`     | `POST /v1/webhooks`               |
 | `expys.listWebhooks()`                                | `GET /v1/webhooks`                |
 | `expys.deleteWebhook(id)`                             | `DELETE /v1/webhooks/{id}`        |
@@ -227,9 +240,11 @@ If you configure the SDK with a member token (a `v4.local.…` PASETO) and call 
 of these, the SDK **fails fast client-side** with a `NotConfiguredError` **before
 any network request** — the credential is classified as a machine credential iff
 it starts with `expys_`. The server **also** enforces this: a member token is
-`403`'d via the route auth matrix. The three POSTs (`exchangeToken`,
-`creditPoints`, `createWebhook`) auto-send an `Idempotency-Key` like the other
-writes; the PUT and DELETEs are idempotent by HTTP semantics and send no key.
+`403`'d via the route auth matrix. The four POSTs (`exchangeToken`,
+`creditPoints`, `createWebhook`, `importMembers`) auto-send an `Idempotency-Key` like the other
+writes; the PUTs and DELETEs are idempotent by HTTP semantics and send no key.
+`setOfferPrice`, `deleteOfferPrice` and `updateConfiguration` need the
+`CONFIG_WRITE` scope, which a new key does not have by default.
 
 ```ts
 // Backend only — never in a client app.
