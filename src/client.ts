@@ -10,6 +10,9 @@ import type {
   CreditWalletRequest,
   CreditWalletResponse,
   DeleteWebhookResponse,
+  ExperienceImpactPage,
+  ExperienceImpactRow,
+  ExperienceImpactSummary,
   GetAnalyticsLiftResponse,
   GetAnalyticsOffersResponse,
   GetAnalyticsSegmentsResponse,
@@ -18,6 +21,7 @@ import type {
   GetBalanceResponse,
   GetTermsContentResponse,
   GetTermsResponse,
+  ImportMemberActivityRequest,
   ImportMembersRequest,
   ListConversationsResponse,
   ListMemberSignalHistoryResponse,
@@ -25,6 +29,9 @@ import type {
   ListMessagesResponse,
   ListRedemptionsResponse,
   ListTransactionsResponse,
+  MemberActivity,
+  MemberActivityImportReport,
+  MemberActivityWriteResult,
   MemberEligibility,
   MemberImportReport,
   MemberSignals,
@@ -36,6 +43,7 @@ import type {
   RemoveMemberResponse,
   SendMessageResponse,
   SetInterestIntakeRequest,
+  SetMemberActivityRequest,
   SetMemberRequest,
   SetMemberResponse,
   SetOfferPriceRequest,
@@ -401,6 +409,60 @@ export interface ExpysClient {
     params: GetAnalyticsSegmentsParams,
   ): Promise<GetAnalyticsSegmentsResponse>;
   /**
+   * Experience impact per redemption: for each confirmed redemption in the period
+   * (on the redemption date), newest first, how the VIP's monthly deposits and
+   * spend moved in the months after against the months before, next to the median
+   * change of similar VIPs who redeemed nothing over the same months, and the net.
+   * Built on the activity sent with {@link ExpysClient.setMemberActivity}. Reads
+   * live data only, so a sandbox key gets no rows. Cursor-paginate with
+   * `params.cursor` until the response's `nextCursor` is null. Server-only:
+   * requires an Org-API-Key machine credential with `ANALYTICS_READ`; calling it
+   * with a member token throws a {@link NotConfiguredError} before any request.
+   *
+   * @param params - The required period, `from` (inclusive) and `to` (exclusive)
+   *   as ISO-8601 date-time strings, and optional `window`, `offer`, `status`,
+   *   `limit` and `cursor`.
+   * @returns An {@link ExperienceImpactPage} of rows plus the next `nextCursor`.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link ValidationError} when `from` is after `to`.
+   * @example
+   * ```ts
+   * const { rows } = await expys.getExperienceImpact({
+   *   from: "2026-01-01T00:00:00Z",
+   *   to: "2026-07-01T00:00:00Z",
+   *   status: "COMPLETE",
+   * });
+   * ```
+   */
+  getExperienceImpact(
+    params: GetExperienceImpactParams,
+  ): Promise<ExperienceImpactPage>;
+  /**
+   * Experience impact by experience and for all experiences, for one metric:
+   * redeemers, their median change, similar VIPs' median change and the net lift,
+   * plus the win-back line (cooling VIPs a host sent an experience to against
+   * those sent nothing, on deposits). A cell under 5 redeemers comes back with
+   * `suppressed: true` and every figure `null`. Reads live data only. Server-only:
+   * requires an Org-API-Key machine credential with `ANALYTICS_READ`; calling it
+   * with a member token throws a {@link NotConfiguredError} before any request.
+   *
+   * @param params - The required period, `from` (inclusive) and `to` (exclusive)
+   *   as ISO-8601 date-time strings, and optional `window` and `metric`.
+   * @returns An {@link ExperienceImpactSummary}.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link ValidationError} when `from` is after `to`.
+   * @example
+   * ```ts
+   * const { all, winBack } = await expys.getExperienceImpactSummary({
+   *   from: "2026-01-01T00:00:00Z",
+   *   to: "2026-07-01T00:00:00Z",
+   * });
+   * ```
+   */
+  getExperienceImpactSummary(
+    params: GetExperienceImpactSummaryParams,
+  ): Promise<ExperienceImpactSummary>;
+  /**
    * Read an interest and its intake.
    *
    * @param id - The interest id.
@@ -421,6 +483,22 @@ export interface ExpysClient {
    * ```
    */
   getMember(externalUserID: string): Promise<MemberSummary>;
+  /**
+   * Read a member's monthly activity: the stored months, newest first, in the form
+   * they were sent (`form` is `null` when there are none). Server-only: requires an
+   * Org-API-Key machine credential with `MEMBERS_READ`; calling it with a member
+   * token throws a {@link NotConfiguredError} before any request.
+   *
+   * @param externalUserID - The member's external user id.
+   * @returns The member's {@link MemberActivity}.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link NotFoundError} when the member is not in your org.
+   * @example
+   * ```ts
+   * const { form, months } = await expys.getMemberActivity("user_42");
+   * ```
+   */
+  getMemberActivity(externalUserID: string): Promise<MemberActivity>;
   /**
    * Read one offer by its id: the same shape {@link ExpysClient.listOffers} returns,
    * for a deep link. Works with a member token or a machine credential.
@@ -496,6 +574,38 @@ export interface ExpysClient {
    * @returns `contentHTML` (a complete HTML fragment to render) and `renderedHash`.
    */
   getTermsContent(version: string): Promise<GetTermsContentResponse>;
+  /**
+   * Write monthly activity for up to 1,000 VIPs and 24,000 months in one call: each
+   * row is `{ externalUserID, months }`, every month the shape of one month of
+   * {@link ExpysClient.setMemberActivity}. A bad month is listed in the report with
+   * its 1-based row, field and code; every other month is written. Counts are
+   * months. Sends an `Idempotency-Key` (the route requires one) so a retry replays
+   * the original report; override it via `params.idempotencyKey`. Pass
+   * `params.dryRun` to check and diff every month without writing. Server-only:
+   * requires an Org-API-Key machine credential with `MEMBERS_WRITE`; calling it
+   * with a member token throws a {@link NotConfiguredError} before any request.
+   *
+   * @param input - The `rows` to import.
+   * @param params - Optional `dryRun` and a custom `idempotencyKey`.
+   * @returns A {@link MemberActivityImportReport}.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link ValidationError} when the body itself is malformed, or an
+   *   {@link ApiError} with status 413 and `code === "batch_too_large"` over 1,000
+   *   rows or 24,000 months.
+   * @example
+   * ```ts
+   * const report = await expys.importMemberActivity({
+   *   rows: [
+   *     { externalUserID: "user_42", months: [{ month: "2026-10", deposits: { index: 120 } }] },
+   *   ],
+   * });
+   * // report.accepted, report.rejected, report.errors
+   * ```
+   */
+  importMemberActivity(
+    input: ImportMemberActivityRequest,
+    params?: ImportMemberActivityParams,
+  ): Promise<MemberActivityImportReport>;
   /**
    * Upsert up to 1,000 members in one call: each row takes the fields of
    * {@link ExpysClient.setMember} (`tier`, `signals`, `attributes`, `asOf`). A bad
@@ -688,6 +798,37 @@ export interface ExpysClient {
     input: SetMemberRequest,
   ): Promise<SetMemberResponse>;
   /**
+   * Write a member's monthly activity: 1-24 calendar months, each with `deposits`
+   * and `spend` as an index of the VIP's usual month (`{ index }`, 100 = usual) or,
+   * for an org allowed amounts, as totals in minor units (`{ amount, currency }`),
+   * and `activeDays`. A month sent again replaces the stored one; an identical
+   * resend writes nothing. The member must exist. Sends no idempotency key unless
+   * `options.idempotencyKey` is given. Server-only: requires an Org-API-Key machine
+   * credential with `MEMBERS_WRITE`; calling it with a member token throws a
+   * {@link NotConfiguredError} before any request.
+   *
+   * @param externalUserID - The member's external user id.
+   * @param input - The `months` to write.
+   * @param options - Optional `idempotencyKey`.
+   * @returns A {@link MemberActivityWriteResult}: months `created`, `updated` and
+   *   `unchanged`.
+   * @throws A {@link NotConfiguredError} when configured with a member token.
+   * @throws A {@link NotFoundError} when the member is not in your org, or a
+   *   {@link ValidationError} naming the `code` and `field` (for example
+   *   `metric_not_enabled` or `amounts_not_allowed`); nothing is written.
+   * @example
+   * ```ts
+   * await expys.setMemberActivity("user_42", {
+   *   months: [{ month: "2026-10", deposits: { index: 120 }, activeDays: 14 }],
+   * });
+   * ```
+   */
+  setMemberActivity(
+    externalUserID: string,
+    input: SetMemberActivityRequest,
+    options?: WriteOptions,
+  ): Promise<MemberActivityWriteResult>;
+  /**
    * Set the org's own display price for one experience, in your currency. Your
    * members see this amount instead of the derived figure; the points debited on
    * redemption are unchanged. Idempotent by HTTP semantics (PUT), so no idempotency
@@ -836,6 +977,42 @@ export interface GetAnalyticsSegmentsParams {
 }
 
 /**
+ * Parameters for {@link ExpysClient.getExperienceImpact}. `from` and `to` are
+ * required.
+ */
+export interface GetExperienceImpactParams {
+  /** Pagination cursor from a previous response's `nextCursor`. */
+  cursor?: string;
+  /** Start of the period (inclusive), on the redemption date, ISO-8601. */
+  from: string;
+  /** Maximum number of rows to return (1-200, default 50). */
+  limit?: number;
+  /** Only this experience's redemptions: an offer id as in `listOffers`. */
+  offer?: string;
+  /** Only rows in this state. */
+  status?: ExperienceImpactRow["state"];
+  /** End of the period (exclusive), ISO-8601. */
+  to: string;
+  /** Months each side of the redemption month: 3 (the default) or 6. */
+  window?: 3 | 6;
+}
+
+/**
+ * Parameters for {@link ExpysClient.getExperienceImpactSummary}. `from` and `to`
+ * are required.
+ */
+export interface GetExperienceImpactSummaryParams {
+  /** Start of the period (inclusive), on the redemption date, ISO-8601. */
+  from: string;
+  /** The metric to summarise: `deposits` (the default) or `spend`. */
+  metric?: ExperienceImpactSummary["metric"];
+  /** End of the period (exclusive), ISO-8601. */
+  to: string;
+  /** Months each side of the redemption month: 3 (the default) or 6. */
+  window?: 3 | 6;
+}
+
+/**
  * Parameters for {@link ExpysClient.getSignalHistory}.
  */
 export interface GetSignalHistoryParams {
@@ -855,6 +1032,14 @@ export interface GetSignalHistoryParams {
 export interface GetTermsParams {
   /** Names the member when a machine token calls on their behalf. */
   externalUserID?: string;
+}
+
+/**
+ * Parameters for {@link ExpysClient.importMemberActivity}.
+ */
+export interface ImportMemberActivityParams extends WriteOptions {
+  /** Check and diff every month and return the report without writing anything. */
+  dryRun?: boolean;
 }
 
 /**
@@ -1132,6 +1317,35 @@ export function initialize(config: ExpysConfig): ExpysClient {
         },
       });
     },
+    getExperienceImpact: (params) => {
+      guardServerOnly("getExperienceImpact");
+      return http.request<ExperienceImpactPage>({
+        method: "GET",
+        path: "/v1/analytics/impact",
+        query: {
+          cursor: params.cursor,
+          from: params.from,
+          limit: params.limit,
+          offer: params.offer,
+          status: params.status,
+          to: params.to,
+          window: params.window,
+        },
+      });
+    },
+    getExperienceImpactSummary: (params) => {
+      guardServerOnly("getExperienceImpactSummary");
+      return http.request<ExperienceImpactSummary>({
+        method: "GET",
+        path: "/v1/analytics/impact/summary",
+        query: {
+          from: params.from,
+          metric: params.metric,
+          to: params.to,
+          window: params.window,
+        },
+      });
+    },
     getInterest: (id) =>
       http.request<CreateInterestResponse>({
         method: "GET",
@@ -1142,6 +1356,13 @@ export function initialize(config: ExpysConfig): ExpysClient {
       return http.request<MemberSummary>({
         method: "GET",
         path: `/v1/members/${encodeURIComponent(externalUserID)}`,
+      });
+    },
+    getMemberActivity: (externalUserID) => {
+      guardServerOnly("getMemberActivity");
+      return http.request<MemberActivity>({
+        method: "GET",
+        path: `/v1/members/${encodeURIComponent(externalUserID)}/activity`,
       });
     },
     getOffer: (id) =>
@@ -1178,6 +1399,16 @@ export function initialize(config: ExpysConfig): ExpysClient {
         method: "GET",
         path: `/v1/terms/${encodeURIComponent(version)}/content`,
       }),
+    importMemberActivity: (input, params) => {
+      guardServerOnly("importMemberActivity");
+      return http.request<MemberActivityImportReport>({
+        body: input,
+        idempotencyKey: params?.idempotencyKey ?? generateIdempotencyKey(),
+        method: "POST",
+        path: "/v1/members/activity/batch",
+        query: { dryRun: params?.dryRun === true ? "true" : undefined },
+      });
+    },
     importMembers: (input, params) => {
       guardServerOnly("importMembers");
       return http.request<MemberImportReport>({
@@ -1282,6 +1513,15 @@ export function initialize(config: ExpysConfig): ExpysClient {
         body: input,
         method: "PUT",
         path: `/v1/members/${encodeURIComponent(externalUserID)}`,
+      });
+    },
+    setMemberActivity: (externalUserID, input, options) => {
+      guardServerOnly("setMemberActivity");
+      return http.request<MemberActivityWriteResult>({
+        body: input,
+        idempotencyKey: options?.idempotencyKey,
+        method: "PUT",
+        path: `/v1/members/${encodeURIComponent(externalUserID)}/activity`,
       });
     },
     setOfferPrice: (id, input) => {

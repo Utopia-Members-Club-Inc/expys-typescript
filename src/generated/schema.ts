@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+    "/v1/analytics/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List experience impact per redemption */
+        get: operations["getAnalyticsImpact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/analytics/impact/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read experience impact by experience */
+        get: operations["getAnalyticsImpactSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/analytics/lift": {
         parameters: {
             query?: never;
@@ -310,6 +344,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/members/activity/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write monthly activity for up to 1000 VIPs and 24000 months in one call, with a per-month report */
+        post: operations["importMemberActivity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/members/batch": {
         parameters: {
             query?: never;
@@ -341,6 +392,24 @@ export interface paths {
         post?: never;
         /** Remove (offboard) a VIP member */
         delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/members/{externalUserID}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read a VIP member's monthly activity, newest month first */
+        get: operations["getMemberActivity"];
+        /** Write a VIP member's monthly deposits, spend and active days */
+        put: operations["setMemberActivity"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -624,6 +693,17 @@ export interface components {
             externalUserID?: string;
             versions: string[];
         };
+        ActivityMonth: {
+            activeDays?: number;
+            deposits?: components["schemas"]["ActivityValue"];
+            month: string;
+            spend?: components["schemas"]["ActivityValue"];
+        };
+        ActivityValue: {
+            amount?: number;
+            currency?: string;
+            index?: number;
+        };
         Attachments: {
             expiresAt: string;
             name: string;
@@ -702,6 +782,49 @@ export interface components {
             /** @enum {string} */
             source: "AUTHORED" | "DERIVED";
         } | null;
+        ExperienceImpactCell: {
+            compared: number | null;
+            medianChange: number | null;
+            medianComparisonChange: number | null;
+            netLift: number | null;
+            offer: string | null;
+            offerTitle: string | null;
+            redeemers: number | null;
+            roseShare: number | null;
+            suppressed: boolean;
+        };
+        ExperienceImpactPage: {
+            nextCursor: string | null;
+            rows: components["schemas"]["ExperienceImpactRow"][];
+            unlinked: number;
+        };
+        ExperienceImpactRow: {
+            anchorMonth: string;
+            deposits: components["schemas"]["MetricImpact"];
+            deskLabel: string | null;
+            /** Format: date-time */
+            experienceAt: string | null;
+            externalUserID: string;
+            offer: string | null;
+            offerTitle: string | null;
+            overlapping: boolean;
+            /** Format: date-time */
+            redeemedAt: string;
+            redemptionID: string;
+            spend: components["schemas"]["MetricImpact"];
+            /** @enum {string} */
+            state: "COMPLETE" | "PENDING" | "INSUFFICIENT";
+            viaHostDesk: boolean;
+            window: number;
+        };
+        ExperienceImpactSummary: {
+            all: components["schemas"]["ImpactSummaryCell"];
+            experiences: components["schemas"]["ExperienceImpactCell"][];
+            /** @enum {string} */
+            metric: "deposits" | "spend";
+            winBack: components["schemas"]["WinBack"];
+            window: number;
+        };
         Feedback: {
             comment: string | null;
             rating: number;
@@ -749,6 +872,22 @@ export interface components {
         };
         GetTermsResponse: {
             documents: components["schemas"]["LegalDocument"][];
+        };
+        ImpactComparison: {
+            medianChange: number;
+            vips: number;
+        } | null;
+        ImpactSummaryCell: {
+            compared: number | null;
+            medianChange: number | null;
+            medianComparisonChange: number | null;
+            netLift: number | null;
+            redeemers: number | null;
+            roseShare: number | null;
+            suppressed: boolean;
+        };
+        ImportMemberActivityRequest: {
+            rows: components["schemas"]["MemberActivityImportRow"][];
         };
         ImportMembersRequest: {
             rows: components["schemas"]["MemberImportRow"][];
@@ -810,6 +949,37 @@ export interface components {
             state: string | null;
             venue: string | null;
         } | null;
+        MemberActivity: {
+            externalUserID: string;
+            /** @enum {string|null} */
+            form: "INDEX" | "AMOUNTS" | null;
+            months: components["schemas"]["ActivityMonth"][];
+        };
+        MemberActivityImportError: {
+            /** @enum {string} */
+            code: "amounts_not_allowed" | "duplicate_row" | "form_changed" | "invalid_value" | "member_not_found" | "metric_not_enabled" | "mixed_forms";
+            externalUserID: string;
+            field: string;
+            row: number;
+        };
+        MemberActivityImportReport: {
+            accepted: number;
+            created: number;
+            errors: components["schemas"]["MemberActivityImportError"][];
+            rejected: number;
+            unchanged: number;
+            updated: number;
+        };
+        MemberActivityImportRow: {
+            externalUserID: string;
+            months: components["schemas"]["ActivityMonth"][];
+        };
+        MemberActivityWriteResult: {
+            created: number;
+            externalUserID: string;
+            unchanged: number;
+            updated: number;
+        };
         MemberEligibility: {
             tier: string;
             wallet: components["schemas"]["Wallet"];
@@ -899,6 +1069,20 @@ export interface components {
             id: string;
             type: string;
         };
+        MetricImpact: {
+            afterAmount: number | null;
+            afterMonths: number;
+            beforeAmount: number | null;
+            beforeMonths: number;
+            change: number | null;
+            comparison: components["schemas"]["ImpactComparison"];
+            /** @enum {string|null} */
+            comparisonReason: "not_complete" | "not_enough_similar_vips" | null;
+            currency: string | null;
+            net: number | null;
+            /** @enum {string} */
+            state: "COMPLETE" | "PENDING" | "INSUFFICIENT";
+        } | null;
         Offer: {
             addOns: string[];
             availability: components["schemas"]["Availability"];
@@ -992,6 +1176,9 @@ export interface components {
             occasion?: "BIRTHDAY" | "ANNIVERSARY" | "ENGAGEMENT" | "WEDDING" | "GRADUATION" | "PROMOTION" | "BUSINESS" | "OTHER";
             phone?: string;
             preferredDates?: string[];
+        };
+        SetMemberActivityRequest: {
+            months: components["schemas"]["ActivityMonth"][];
         };
         SetMemberRequest: {
             /** Format: date-time */
@@ -1136,6 +1323,18 @@ export interface components {
             signingSecret: string;
             url: string;
         };
+        WinBack: {
+            notSent: components["schemas"]["WinBackGroup"];
+            sent: components["schemas"]["WinBackGroup"];
+        };
+        WinBackGroup: {
+            measured: number | null;
+            medianChange: number | null;
+            redeemed: number | null;
+            redeemedShare: number | null;
+            suppressed: boolean;
+            vips: number | null;
+        };
     };
     responses: never;
     parameters: never;
@@ -1145,6 +1344,135 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAnalyticsImpact: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                window?: "3" | "6";
+                cursor?: string;
+                limit?: number;
+                offer?: string;
+                status?: "COMPLETE" | "PENDING" | "INSUFFICIENT";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperienceImpactPage"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAnalyticsImpactSummary: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                window?: "3" | "6";
+                metric?: "deposits" | "spend";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperienceImpactSummary"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     getAnalyticsLift: {
         parameters: {
             query: {
@@ -2407,6 +2735,74 @@ export interface operations {
             };
         };
     };
+    importMemberActivity: {
+        parameters: {
+            query?: {
+                /** @description When true, check every row and return the report without writing anything. */
+                dryRun?: boolean;
+            };
+            header: {
+                /** @description Required client-generated key (<=255 chars). A retried batch carrying the same key replays the original report instead of importing twice; reusing a key with a different body returns 409. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportMemberActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberActivityImportReport"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     importMembers: {
         parameters: {
             query?: {
@@ -2657,6 +3053,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RemoveMemberResponse"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getMemberActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externalUserID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberActivity"];
+                };
+            };
+            /** @description Authentication is missing or invalid. */
+            401: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authenticated, but not permitted to access this resource. */
+            403: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Rate limit exceeded; honor the Retry-After header. */
+            429: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An unexpected server error occurred. */
+            500: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setMemberActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                externalUserID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetMemberActivityRequest"];
+            };
+        };
+        responses: {
+            /** @description Response for status 200 */
+            200: {
+                headers: {
+                    /** @description Per-request correlation id. Quote it to support to trace the call in the server logs. */
+                    "X-Request-Id"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberActivityWriteResult"];
                 };
             };
             /** @description Authentication is missing or invalid. */

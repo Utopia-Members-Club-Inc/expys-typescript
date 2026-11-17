@@ -4,6 +4,28 @@ import type { components } from "./generated/schema";
 export type AcceptTermsRequest = Schemas["AcceptTermsRequest"];
 
 /**
+ * One calendar month of a VIP's activity, as {@link ExpysClient.setMemberActivity}
+ * sends it and {@link ExpysClient.getMemberActivity} returns it: `month`
+ * (`"YYYY-MM"`, UTC), `deposits` and `spend` as an {@link ActivityValue}, and
+ * `activeDays` (0-31). A metric left out of a resent month is cleared.
+ */
+export type ActivityMonth = Schemas["ActivityMonth"];
+
+/**
+ * One money metric for one month, in ONE of two forms: `{ index }` (the month as
+ * an index of the VIP's usual month, 100 = usual, two decimals at most) or, for an
+ * org allowed amounts, `{ amount, currency }` (integer minor units and an ISO 4217
+ * code).
+ *
+ * @example
+ * ```ts
+ * const usual: ActivityValue = { index: 100 };
+ * const amount: ActivityValue = { amount: 240_000, currency: "USD" };
+ * ```
+ */
+export type ActivityValue = Schemas["ActivityValue"];
+
+/**
  * A field {@link ExpysClient.getAnalyticsSegments} can group VIPs by. Each field
  * must be switched on for your org; `vipStatus` also needs `activityBand`.
  */
@@ -113,6 +135,33 @@ export type Currency = Schemas["Currency"];
  */
 export type DeleteWebhookResponse = Schemas["DeleteWebhookResponse"];
 
+/**
+ * One by-experience cell of {@link ExpysClient.getExperienceImpactSummary}: the
+ * {@link ImpactSummaryCell} figures plus the experience (`offer`, `offerTitle`).
+ */
+export type ExperienceImpactCell = Schemas["ExperienceImpactCell"];
+
+/**
+ * A page of {@link ExperienceImpactRow}s, newest redemption first, plus the
+ * `nextCursor` (`null` when exhausted) and `unlinked`: redemptions in the period
+ * that could not be tied to a VIP you sent.
+ */
+export type ExperienceImpactPage = Schemas["ExperienceImpactPage"];
+
+/**
+ * One redemption with its before/after reading: the VIP (`externalUserID`, and
+ * the host desk `deskLabel` when a host linked one), the experience, the
+ * redemption and experience dates, the lead `state`, and a {@link MetricImpact}
+ * for `deposits` and `spend` (`null` for a metric you do not send).
+ */
+export type ExperienceImpactRow = Schemas["ExperienceImpactRow"];
+
+/**
+ * The result of {@link ExpysClient.getExperienceImpactSummary}: `all`, one
+ * {@link ExperienceImpactCell} per experience, and the {@link WinBack} line.
+ */
+export type ExperienceImpactSummary = Schemas["ExperienceImpactSummary"];
+
 /** A member's score for an experience they have had. */
 export type Feedback = Schemas["Feedback"];
 
@@ -213,6 +262,27 @@ export type GetTermsContentResponse = Schemas["GetTermsContentResponse"];
 
 /** Response of {@link ExpysClient.getTerms} and {@link ExpysClient.acceptTerms}. */
 export type GetTermsResponse = Schemas["GetTermsResponse"];
+
+/**
+ * Similar VIPs who redeemed nothing, over the same calendar months: their
+ * `medianChange` and how many (`vips`, at least 5). `null` when there is none;
+ * {@link MetricImpact} `comparisonReason` says why.
+ */
+export type ImpactComparison = Schemas["ImpactComparison"];
+
+/**
+ * One cell of the impact summary. When `suppressed`, fewer than 5 redeemers (or
+ * hidden so a smaller cell cannot be worked out) and every figure is `null`.
+ * Changes are fractions (`0.15` = +15.0%).
+ */
+export type ImpactSummaryCell = Schemas["ImpactSummaryCell"];
+
+/**
+ * The body for {@link ExpysClient.importMemberActivity}: up to 1,000
+ * {@link MemberActivityImportRow}s and 24,000 months.
+ */
+export type ImportMemberActivityRequest =
+  Schemas["ImportMemberActivityRequest"];
 
 /**
  * The body for {@link ExpysClient.importMembers}: up to 1,000 {@link MemberImportRow}s.
@@ -317,6 +387,39 @@ export type ListRedemptionsResponse = Schemas["ListRedemptionsResponse"];
 export type ListTransactionsResponse = Schemas["ListTransactionsResponse"];
 
 /**
+ * The result of {@link ExpysClient.getMemberActivity}: the stored
+ * {@link ActivityMonth}s, newest first, and their `form` (`INDEX`, `AMOUNTS`, or
+ * `null` when there are none).
+ */
+export type MemberActivity = Schemas["MemberActivity"];
+
+/**
+ * One refused part of {@link ExpysClient.importMemberActivity}: its 1-based `row`,
+ * the `externalUserID`, the `field` path (`months[3].deposits.index`) and a stable
+ * `code`.
+ */
+export type MemberActivityImportError = Schemas["MemberActivityImportError"];
+
+/**
+ * The result of {@link ExpysClient.importMemberActivity}, counted in months:
+ * `accepted` (written, or on a dry run would be, as `created` + `updated` +
+ * `unchanged`), `rejected`, and one `errors` entry per refusal.
+ */
+export type MemberActivityImportReport = Schemas["MemberActivityImportReport"];
+
+/**
+ * One VIP in {@link ExpysClient.importMemberActivity}: `externalUserID` and that
+ * VIP's {@link ActivityMonth}s.
+ */
+export type MemberActivityImportRow = Schemas["MemberActivityImportRow"];
+
+/**
+ * The result of {@link ExpysClient.setMemberActivity}: months `created`,
+ * `updated` and `unchanged`.
+ */
+export type MemberActivityWriteResult = Schemas["MemberActivityWriteResult"];
+
+/**
  * A member's eligibility: their `tier` and current {@link Wallet}.
  *
  * @example
@@ -388,6 +491,15 @@ export type MemberSummary = Schemas["MemberSummary"];
 export type Message = Schemas["Message"];
 
 /**
+ * One money metric of one redemption: `state`, months present each side,
+ * `change` (`after / before - 1`, `COMPLETE` only), the {@link ImpactComparison},
+ * `net` (change minus the comparison median) and, in the amounts form only,
+ * `beforeAmount` / `afterAmount` in minor units with `currency`. `null` for a
+ * metric you do not send.
+ */
+export type MetricImpact = Schemas["MetricImpact"];
+
+/**
  * An offer a member can browse and redeem.
  *
  * @example
@@ -447,6 +559,19 @@ export type SendMessageResponse = Schemas["SendMessageResponse"];
 
 /** Body of {@link ExpysClient.setInterestIntake}. */
 export type SetInterestIntakeRequest = Schemas["SetInterestIntakeRequest"];
+
+/**
+ * The body for {@link ExpysClient.setMemberActivity}: 1-24 {@link ActivityMonth}s,
+ * all in one form.
+ *
+ * @example
+ * ```ts
+ * const body: SetMemberActivityRequest = {
+ *   months: [{ month: "2026-10", deposits: { index: 120 } }],
+ * };
+ * ```
+ */
+export type SetMemberActivityRequest = Schemas["SetMemberActivityRequest"];
 
 /**
  * The body for {@link ExpysClient.setMember}: optional `tier`, `displayName`, and
@@ -622,6 +747,20 @@ export type WebhookEndpointList = Schemas["WebhookEndpointList"];
  * ```
  */
 export type WebhookEndpointWithSecret = Schemas["WebhookEndpointWithSecret"];
+
+/**
+ * The win-back line of {@link ExpysClient.getExperienceImpactSummary}: VIPs
+ * cooling at the start of a month, those a host sent an experience to that month
+ * (`sent`) against those sent nothing (`notSent`), on deposits.
+ */
+export type WinBack = Schemas["WinBack"];
+
+/**
+ * One side of {@link WinBack}: `vips`, how many `redeemed` within 60 days and
+ * their share, how many were `measured`, and their median deposits change. Every
+ * figure is `null` when `suppressed` (under 5 VIPs).
+ */
+export type WinBackGroup = Schemas["WinBackGroup"];
 
 // Clean public aliases over the generated schema. The wire shapes are generated
 // from packages/api-spec/v1.sdk.json; the aliases above are the SDK's public

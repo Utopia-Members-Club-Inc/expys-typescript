@@ -223,11 +223,16 @@ from your app. The following methods are **server-only**: they require an
 | `expys.removeMember(externalUserID, { retainBalance? })` | `DELETE /v1/members/{externalUserID}` |
 | `expys.importMembers({ rows }, { dryRun?, idempotencyKey? })` | `POST /v1/members/batch` |
 | `expys.getSignalHistory(externalUserID, { from?, to?, limit?, cursor? })` | `GET /v1/members/{externalUserID}/signals/history` |
+| `expys.setMemberActivity(externalUserID, { months }, { idempotencyKey? })` | `PUT /v1/members/{externalUserID}/activity` |
+| `expys.getMemberActivity(externalUserID)` | `GET /v1/members/{externalUserID}/activity` |
+| `expys.importMemberActivity({ rows }, { dryRun?, idempotencyKey? })` | `POST /v1/members/activity/batch` |
 | `expys.analyticsSummary()`                            | `GET /v1/analytics/summary`       |
 | `expys.analyticsOffers()`                             | `GET /v1/analytics/offers`        |
 | `expys.analyticsTimeseries({ from, to, interval })`   | `GET /v1/analytics/timeseries`    |
 | `expys.getAnalyticsSegments({ from, to, groupBy })` | `GET /v1/analytics/segments` |
 | `expys.getAnalyticsLift({ from, to })` | `GET /v1/analytics/lift` |
+| `expys.getExperienceImpact({ from, to, window?, offer?, status?, limit?, cursor? })` | `GET /v1/analytics/impact` |
+| `expys.getExperienceImpactSummary({ from, to, window?, metric? })` | `GET /v1/analytics/impact/summary` |
 | `expys.balance()`                                     | `GET /v1/balance`                 |
 | `expys.setOfferPrice(id, { amount })`                 | `PUT /v1/offers/{id}/price`       |
 | `expys.deleteOfferPrice(id)`                          | `DELETE /v1/offers/{id}/price`    |
@@ -240,9 +245,11 @@ If you configure the SDK with a member token (a `v4.local.…` PASETO) and call 
 of these, the SDK **fails fast client-side** with a `NotConfiguredError` **before
 any network request** — the credential is classified as a machine credential iff
 it starts with `expys_`. The server **also** enforces this: a member token is
-`403`'d via the route auth matrix. The four POSTs (`exchangeToken`,
-`creditPoints`, `createWebhook`, `importMembers`) auto-send an `Idempotency-Key` like the other
-writes; the PUTs and DELETEs are idempotent by HTTP semantics and send no key.
+`403`'d via the route auth matrix. The five POSTs (`exchangeToken`,
+`creditPoints`, `createWebhook`, `importMembers`, `importMemberActivity`)
+auto-send an `Idempotency-Key` like the other writes; the PUTs and DELETEs are
+idempotent by HTTP semantics and send no key (`setMemberActivity` sends one only
+when you pass `idempotencyKey`).
 `setOfferPrice`, `deleteOfferPrice` and `updateConfiguration` need the
 `CONFIG_WRITE` scope, which a new key does not have by default.
 
